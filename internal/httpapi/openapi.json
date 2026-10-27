@@ -1,1041 +1,1775 @@
 {
- "openapi": "3.0.3",
- "info": {
-  "title": "Last Ticket API",
-  "version": "1.0.0",
-  "description": "Seat reservation and purchase service with a test balance."
- },
- "paths": {
-  "/users": {
-   "post": {
-    "summary": "Create user with test balance",
-    "tags": [
-     "users"
-    ],
-    "responses": {
-     "201": {
-      "description": "created",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/User"
-        }
-       }
-      }
-     },
-     "400": {
-      "description": "bad request",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Error"
-        }
-       }
-      }
-     },
-     "409": {
-      "description": "id exists",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Error"
-        }
-       }
-      }
-     }
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Last Ticket API",
+    "version": "2.0.0",
+    "description": "Seat reservation and purchase with test balances.\n\nAuthentication: POST /auth/login, then click Authorize and paste the accessToken. Roles: user (buyer), admin (catalogue), provider (payment callbacks)."
+  },
+  "tags": [
+    {
+      "name": "auth"
     },
-    "requestBody": {
-     "required": true,
-     "content": {
-      "application/json": {
-       "schema": {
-        "type": "object",
-        "properties": {
-         "id": {
-          "type": "string"
-         },
-         "name": {
-          "type": "string"
-         },
-         "balance": {
-          "type": "integer",
-          "format": "int64"
-         }
-        },
-        "required": [
-         "name",
-         "balance"
-        ]
-       }
-      }
-     }
+    {
+      "name": "catalog"
+    },
+    {
+      "name": "booking"
+    },
+    {
+      "name": "payments"
+    },
+    {
+      "name": "system"
     }
-   }
-  },
-  "/users/{id}": {
-   "get": {
-    "summary": "Get user (with balance)",
-    "tags": [
-     "users"
-    ],
-    "responses": {
-     "200": {
-      "description": "user",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/User"
-        }
-       }
-      }
-     },
-     "404": {
-      "description": "not found",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Error"
-        }
-       }
-      }
-     }
-    },
-    "parameters": [
-     {
-      "name": "id",
-      "in": "path",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ]
-   }
-  },
-  "/organizers": {
-   "post": {
-    "summary": "Create organizer",
-    "tags": [
-     "organizers"
-    ],
-    "responses": {
-     "201": {
-      "description": "created",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/User"
-        }
-       }
-      }
-     }
-    },
-    "requestBody": {
-     "required": true,
-     "content": {
-      "application/json": {
-       "schema": {
-        "type": "object",
-        "properties": {
-         "id": {
-          "type": "string"
-         },
-         "name": {
-          "type": "string"
-         },
-         "balance": {
-          "type": "integer",
-          "format": "int64"
-         }
-        },
-        "required": [
-         "name",
-         "balance"
-        ]
-       }
-      }
-     }
-    }
-   }
-  },
-  "/organizers/{id}": {
-   "get": {
-    "summary": "Get organizer (with balance)",
-    "tags": [
-     "organizers"
-    ],
-    "responses": {
-     "200": {
-      "description": "organizer",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/User"
-        }
-       }
-      }
-     },
-     "404": {
-      "description": "not found",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Error"
-        }
-       }
-      }
-     }
-    },
-    "parameters": [
-     {
-      "name": "id",
-      "in": "path",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ]
-   }
-  },
-  "/events": {
-   "get": {
-    "summary": "List events",
-    "tags": [
-     "events"
-    ],
-    "responses": {
-     "200": {
-      "description": "events",
-      "content": {
-       "application/json": {
-        "schema": {
-         "type": "array",
-         "items": {
-          "$ref": "#/components/schemas/Event"
-         }
-        }
-       }
-      }
-     }
-    }
-   },
-   "post": {
-    "summary": "Create event with seats (explicit list or generated A1..An)",
-    "tags": [
-     "events"
-    ],
-    "responses": {
-     "201": {
-      "description": "created",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Event"
-        }
-       }
-      }
-     },
-     "404": {
-      "description": "not found",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Error"
-        }
-       }
-      }
-     }
-    },
-    "requestBody": {
-     "required": true,
-     "content": {
-      "application/json": {
-       "schema": {
-        "type": "object",
-        "properties": {
-         "id": {
-          "type": "string"
-         },
-         "name": {
-          "type": "string"
-         },
-         "organizerId": {
-          "type": "string"
-         },
-         "seats": {
-          "type": "array",
-          "items": {
-           "type": "object",
-           "properties": {
-            "number": {
-             "type": "string"
-            },
-            "price": {
-             "type": "integer",
-             "format": "int64"
-            }
-           }
+  ],
+  "paths": {
+    "/healthz": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Liveness probe",
+        "responses": {
+          "200": {
+            "description": "Process is up"
           }
-         },
-         "generate": {
-          "type": "object",
-          "properties": {
-           "prefix": {
+        },
+        "security": []
+      }
+    },
+    "/readyz": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Readiness probe (database reachable)",
+        "responses": {
+          "200": {
+            "description": "Ready"
+          },
+          "503": {
+            "description": "Database unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/users": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Register a buyer with a test balance (public)",
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Login is taken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "login": {
+                    "type": "string",
+                    "example": "ivan"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 72
+                  },
+                  "balance": {
+                    "type": "integer",
+                    "format": "int64",
+                    "example": 10000
+                  }
+                },
+                "required": [
+                  "name",
+                  "login",
+                  "password",
+                  "balance"
+                ]
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/users/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Current account (with balance)",
+        "responses": {
+          "200": {
+            "description": "Account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Account by id (self or admin)",
+        "responses": {
+          "200": {
+            "description": "Account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed for this role or not your object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Log in: returns an access token (JWT) and a refresh token",
+        "responses": {
+          "200": {
+            "description": "Tokens",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid login or password",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "login": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "login",
+                  "password"
+                ]
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Exchange a refresh token for a new pair (rotation)",
+        "responses": {
+          "200": {
+            "description": "Tokens",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unknown, expired or reused refresh token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "The presented refresh token is revoked. Presenting a revoked token again revokes every session of the user.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refreshToken": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "refreshToken"
+                ]
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Revoke a refresh token (idempotent)",
+        "responses": {
+          "204": {
+            "description": "Revoked"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refreshToken": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "refreshToken"
+                ]
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/organizers": {
+      "post": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Create organizer (admin)",
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Organizer"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed for this role or not your object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Id is taken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "balance": {
+                    "type": "integer",
+                    "format": "int64"
+                  }
+                },
+                "required": [
+                  "name",
+                  "balance"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/organizers/{id}": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Organizer with balance (admin)",
+        "responses": {
+          "200": {
+            "description": "Organizer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Organizer"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed for this role or not your object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/events": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "List events",
+        "responses": {
+          "200": {
+            "description": "Events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Event"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      },
+      "post": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Create event with seats (admin)",
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Event"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed for this role or not your object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Organizer not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Id is taken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Seats are given as a list, generated as prefix1..prefixN, or both.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "organizerId": {
+                    "type": "string"
+                  },
+                  "seats": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "number": {
+                          "type": "string"
+                        },
+                        "price": {
+                          "type": "integer",
+                          "format": "int64"
+                        }
+                      },
+                      "required": [
+                        "number",
+                        "price"
+                      ]
+                    }
+                  },
+                  "generate": {
+                    "type": "object",
+                    "properties": {
+                      "prefix": {
+                        "type": "string",
+                        "example": "A"
+                      },
+                      "count": {
+                        "type": "integer",
+                        "example": 100
+                      },
+                      "price": {
+                        "type": "integer",
+                        "format": "int64",
+                        "example": 2000
+                      }
+                    },
+                    "required": [
+                      "count",
+                      "price"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "organizerId"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/events/{id}/seats": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Seats with price and current status",
+        "responses": {
+          "200": {
+            "description": "Seats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Seat"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/reservations": {
+      "post": {
+        "tags": [
+          "booking"
+        ],
+        "summary": "Reserve a seat for the reservation TTL (buyer)",
+        "responses": {
+          "201": {
+            "description": "Reserved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reservation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed for this role or not your object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Seat is not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "eventId": {
+                    "type": "string",
+                    "example": "event-1"
+                  },
+                  "seatId": {
+                    "type": "string",
+                    "example": "A17"
+                  },
+                  "userId": {
+                    "type": "string",
+                    "description": "Optional; must equal the caller"
+                  }
+                },
+                "required": [
+                  "eventId",
+                  "seatId"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/reservations/{id}": {
+      "get": {
+        "tags": [
+          "booking"
+        ],
+        "summary": "Reservation (owner or admin)",
+        "responses": {
+          "200": {
+            "description": "Reservation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reservation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed for this role or not your object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/reservations/{id}/history": {
+      "get": {
+        "tags": [
+          "booking"
+        ],
+        "summary": "Timeline of the reservation, its seat, purchase and payment",
+        "responses": {
+          "200": {
+            "description": "Transitions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Transition"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed for this role or not your object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/reservations/{id}/cancel": {
+      "post": {
+        "tags": [
+          "booking"
+        ],
+        "summary": "Cancel an active reservation (owner)",
+        "responses": {
+          "200": {
+            "description": "Canceled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reservation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed for this role or not your object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Not reserved any more, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/reservations/{id}/purchase": {
+      "post": {
+        "tags": [
+          "booking"
+        ],
+        "summary": "Start purchase: reserved -> payment_pending (owner)",
+        "responses": {
+          "201": {
+            "description": "Purchase started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseStarted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed for this role or not your object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Not reserved any more, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "description": "Optional; must equal the caller"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/purchases/{id}": {
+      "get": {
+        "tags": [
+          "booking"
+        ],
+        "summary": "Purchase (owner or admin)",
+        "responses": {
+          "200": {
+            "description": "Purchase",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Purchase"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed for this role or not your object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/payments/{id}": {
+      "get": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Payment (owner, admin or provider)",
+        "responses": {
+          "200": {
+            "description": "Payment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed for this role or not your object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/payments/{id}/confirm": {
+      "post": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Payment system callback: success (provider or admin). Moves money atomically.",
+        "responses": {
+          "200": {
+            "description": "Succeeded; also returned for duplicate callbacks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Insufficient funds; the payment is persisted as failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Too late (timed out) or already failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed for this role or not your object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/payments/{id}/fail": {
+      "post": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Payment system callback: refusal (provider or admin). No money moves.",
+        "responses": {
+          "200": {
+            "description": "Failed; also returned for duplicate callbacks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Already succeeded or timed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed for this role or not your object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "seat_unavailable"
+          },
+          "message": {
             "type": "string"
-           },
-           "count": {
-            "type": "integer"
-           },
-           "price": {
+          },
+          "payment": {
+            "$ref": "#/components/schemas/Payment"
+          }
+        },
+        "required": [
+          "error",
+          "message"
+        ]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "login": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "admin",
+              "provider"
+            ]
+          },
+          "balance": {
             "type": "integer",
             "format": "int64"
-           }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
           }
-         }
-        },
-        "required": [
-         "name",
-         "organizerId"
-        ]
-       }
-      }
-     }
-    }
-   }
-  },
-  "/events/{id}/seats": {
-   "get": {
-    "summary": "List seats with price and status",
-    "tags": [
-     "events"
-    ],
-    "responses": {
-     "200": {
-      "description": "seats",
-      "content": {
-       "application/json": {
-        "schema": {
-         "type": "array",
-         "items": {
-          "$ref": "#/components/schemas/Seat"
-         }
         }
-       }
-      }
-     },
-     "404": {
-      "description": "not found",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Error"
-        }
-       }
-      }
-     }
-    },
-    "parameters": [
-     {
-      "name": "id",
-      "in": "path",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ]
-   }
-  },
-  "/reservations": {
-   "post": {
-    "summary": "Reserve a seat for the configured TTL",
-    "tags": [
-     "reservations"
-    ],
-    "responses": {
-     "201": {
-      "description": "reserved",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Reservation"
-        }
-       }
-      }
-     },
-     "409": {
-      "description": "seat is taken",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Error"
-        }
-       }
-      }
-     },
-     "404": {
-      "description": "not found",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Error"
-        }
-       }
-      }
-     }
-    },
-    "requestBody": {
-     "required": true,
-     "content": {
-      "application/json": {
-       "schema": {
+      },
+      "TokenPair": {
         "type": "object",
         "properties": {
-         "userId": {
-          "type": "string"
-         },
-         "eventId": {
-          "type": "string"
-         },
-         "seatId": {
-          "type": "string"
-         }
-        },
-        "required": [
-         "userId",
-         "eventId",
-         "seatId"
-        ]
-       }
-      }
-     }
-    }
-   }
-  },
-  "/reservations/{id}": {
-   "get": {
-    "summary": "Get reservation",
-    "tags": [
-     "reservations"
-    ],
-    "responses": {
-     "200": {
-      "description": "reservation",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Reservation"
+          "accessToken": {
+            "type": "string"
+          },
+          "tokenType": {
+            "type": "string",
+            "example": "Bearer"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "description": "seconds"
+          },
+          "refreshToken": {
+            "type": "string"
+          },
+          "refreshExpiresIn": {
+            "type": "integer",
+            "description": "seconds"
+          }
         }
-       }
-      }
-     },
-     "404": {
-      "description": "not found",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Error"
-        }
-       }
-      }
-     }
-    },
-    "parameters": [
-     {
-      "name": "id",
-      "in": "path",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ]
-   }
-  },
-  "/reservations/{id}/cancel": {
-   "post": {
-    "summary": "Cancel an active reservation",
-    "tags": [
-     "reservations"
-    ],
-    "responses": {
-     "200": {
-      "description": "canceled",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Reservation"
-        }
-       }
-      }
-     },
-     "409": {
-      "description": "invalid state / expired",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Error"
-        }
-       }
-      }
-     },
-     "404": {
-      "description": "not found",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Error"
-        }
-       }
-      }
-     }
-    },
-    "parameters": [
-     {
-      "name": "id",
-      "in": "path",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ]
-   }
-  },
-  "/reservations/{id}/purchase": {
-   "post": {
-    "summary": "Start purchase: reserved -> payment_pending",
-    "tags": [
-     "reservations"
-    ],
-    "responses": {
-     "201": {
-      "description": "purchase started",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/PurchaseStarted"
-        }
-       }
-      }
-     },
-     "403": {
-      "description": "not your reservation",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Error"
-        }
-       }
-      }
-     },
-     "409": {
-      "description": "invalid state / expired",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Error"
-        }
-       }
-      }
-     },
-     "404": {
-      "description": "not found",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Error"
-        }
-       }
-      }
-     }
-    },
-    "parameters": [
-     {
-      "name": "id",
-      "in": "path",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ],
-    "requestBody": {
-     "required": true,
-     "content": {
-      "application/json": {
-       "schema": {
+      },
+      "Organizer": {
         "type": "object",
         "properties": {
-         "userId": {
-          "type": "string"
-         }
-        },
-        "required": [
-         "userId"
-        ]
-       }
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "balance": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "Event": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "organizerId": {
+            "type": "string"
+          }
+        }
+      },
+      "Seat": {
+        "type": "object",
+        "properties": {
+          "seat": {
+            "type": "string"
+          },
+          "price": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "available",
+              "reserved",
+              "payment_pending",
+              "purchased"
+            ]
+          }
+        }
+      },
+      "Reservation": {
+        "type": "object",
+        "properties": {
+          "reservationId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "eventId": {
+            "type": "string"
+          },
+          "seatId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "reserved",
+              "payment_pending",
+              "purchased",
+              "canceled",
+              "expired",
+              "payment_failed"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PurchaseStarted": {
+        "type": "object",
+        "properties": {
+          "purchaseId": {
+            "type": "string"
+          },
+          "paymentId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "payment_pending"
+            ]
+          },
+          "amount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "paymentExpiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Purchase": {
+        "type": "object",
+        "properties": {
+          "purchaseId": {
+            "type": "string"
+          },
+          "reservationId": {
+            "type": "string"
+          },
+          "paymentId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "payment_pending",
+              "purchased",
+              "failed",
+              "timed_out"
+            ]
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Payment": {
+        "type": "object",
+        "properties": {
+          "paymentId": {
+            "type": "string"
+          },
+          "purchaseId": {
+            "type": "string"
+          },
+          "reservationId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "organizerId": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "succeeded",
+              "failed",
+              "timed_out"
+            ]
+          },
+          "failureReason": {
+            "type": "string",
+            "enum": [
+              "insufficient_funds",
+              "declined"
+            ]
+          },
+          "purchaseStatus": {
+            "type": "string",
+            "enum": [
+              "payment_pending",
+              "purchased",
+              "failed",
+              "timed_out"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Transition": {
+        "type": "object",
+        "properties": {
+          "entity": {
+            "type": "string",
+            "enum": [
+              "seat",
+              "reservation",
+              "purchase",
+              "payment"
+            ]
+          },
+          "entityId": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       }
-     }
     }
-   }
-  },
-  "/purchases/{id}": {
-   "get": {
-    "summary": "Get purchase",
-    "tags": [
-     "purchases"
-    ],
-    "responses": {
-     "200": {
-      "description": "purchase",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Purchase"
-        }
-       }
-      }
-     },
-     "404": {
-      "description": "not found",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Error"
-        }
-       }
-      }
-     }
-    },
-    "parameters": [
-     {
-      "name": "id",
-      "in": "path",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ]
-   }
-  },
-  "/payments/{id}": {
-   "get": {
-    "summary": "Get payment",
-    "tags": [
-     "payments"
-    ],
-    "responses": {
-     "200": {
-      "description": "payment",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Payment"
-        }
-       }
-      }
-     },
-     "404": {
-      "description": "not found",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Error"
-        }
-       }
-      }
-     }
-    },
-    "parameters": [
-     {
-      "name": "id",
-      "in": "path",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ]
-   }
-  },
-  "/payments/{id}/confirm": {
-   "post": {
-    "summary": "Provider callback: confirm payment (idempotent). Moves money atomically.",
-    "tags": [
-     "payments"
-    ],
-    "responses": {
-     "200": {
-      "description": "succeeded (also for duplicates)",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Payment"
-        }
-       }
-      }
-     },
-     "402": {
-      "description": "insufficient funds; payment persisted as failed",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Error"
-        }
-       }
-      }
-     },
-     "409": {
-      "description": "late (timed out) or not pending",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Error"
-        }
-       }
-      }
-     },
-     "404": {
-      "description": "not found",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Error"
-        }
-       }
-      }
-     }
-    },
-    "parameters": [
-     {
-      "name": "id",
-      "in": "path",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ]
-   }
-  },
-  "/payments/{id}/fail": {
-   "post": {
-    "summary": "Provider callback: payment refused. No money moves.",
-    "tags": [
-     "payments"
-    ],
-    "responses": {
-     "200": {
-      "description": "failed",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Payment"
-        }
-       }
-      }
-     },
-     "409": {
-      "description": "not pending",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Error"
-        }
-       }
-      }
-     },
-     "404": {
-      "description": "not found",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/Error"
-        }
-       }
-      }
-     }
-    },
-    "parameters": [
-     {
-      "name": "id",
-      "in": "path",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ]
-   }
-  },
-  "/history/{id}": {
-   "get": {
-    "summary": "State transition history of a reservation/purchase/payment",
-    "tags": [
-     "history"
-    ],
-    "responses": {
-     "200": {
-      "description": "transitions",
-      "content": {
-       "application/json": {
-        "schema": {
-         "type": "array",
-         "items": {
-          "$ref": "#/components/schemas/Transition"
-         }
-        }
-       }
-      }
-     }
-    },
-    "parameters": [
-     {
-      "name": "id",
-      "in": "path",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ]
-   }
   }
- },
- "components": {
-  "schemas": {
-   "Error": {
-    "type": "object",
-    "properties": {
-     "error": {
-      "type": "string"
-     },
-     "message": {
-      "type": "string"
-     },
-     "payment": {
-      "$ref": "#/components/schemas/Payment"
-     }
-    }
-   },
-   "User": {
-    "type": "object",
-    "properties": {
-     "id": {
-      "type": "string"
-     },
-     "name": {
-      "type": "string"
-     },
-     "balance": {
-      "type": "integer",
-      "format": "int64"
-     }
-    }
-   },
-   "Event": {
-    "type": "object",
-    "properties": {
-     "id": {
-      "type": "string"
-     },
-     "name": {
-      "type": "string"
-     },
-     "organizerId": {
-      "type": "string"
-     }
-    }
-   },
-   "Seat": {
-    "type": "object",
-    "properties": {
-     "seat": {
-      "type": "string"
-     },
-     "price": {
-      "type": "integer",
-      "format": "int64"
-     },
-     "status": {
-      "type": "string",
-      "enum": [
-       "available",
-       "reserved",
-       "payment_pending",
-       "purchased"
-      ]
-     }
-    }
-   },
-   "Reservation": {
-    "type": "object",
-    "properties": {
-     "reservationId": {
-      "type": "string"
-     },
-     "userId": {
-      "type": "string"
-     },
-     "eventId": {
-      "type": "string"
-     },
-     "seatId": {
-      "type": "string"
-     },
-     "status": {
-      "type": "string",
-      "enum": [
-       "reserved",
-       "payment_pending",
-       "purchased",
-       "canceled",
-       "expired",
-       "payment_failed"
-      ]
-     },
-     "createdAt": {
-      "type": "string",
-      "format": "date-time"
-     },
-     "expiresAt": {
-      "type": "string",
-      "format": "date-time"
-     },
-     "finishedAt": {
-      "type": "string",
-      "format": "date-time"
-     }
-    }
-   },
-   "PurchaseStarted": {
-    "type": "object",
-    "properties": {
-     "purchaseId": {
-      "type": "string"
-     },
-     "paymentId": {
-      "type": "string"
-     },
-     "status": {
-      "type": "string"
-     },
-     "amount": {
-      "type": "integer",
-      "format": "int64"
-     },
-     "paymentExpiresAt": {
-      "type": "string",
-      "format": "date-time"
-     }
-    }
-   },
-   "Purchase": {
-    "type": "object",
-    "properties": {
-     "purchaseId": {
-      "type": "string"
-     },
-     "reservationId": {
-      "type": "string"
-     },
-     "paymentId": {
-      "type": "string"
-     },
-     "status": {
-      "type": "string",
-      "enum": [
-       "payment_pending",
-       "purchased",
-       "failed",
-       "timed_out"
-      ]
-     },
-     "startedAt": {
-      "type": "string",
-      "format": "date-time"
-     },
-     "finishedAt": {
-      "type": "string",
-      "format": "date-time"
-     }
-    }
-   },
-   "Payment": {
-    "type": "object",
-    "properties": {
-     "paymentId": {
-      "type": "string"
-     },
-     "purchaseId": {
-      "type": "string"
-     },
-     "userId": {
-      "type": "string"
-     },
-     "organizerId": {
-      "type": "string"
-     },
-     "amount": {
-      "type": "integer",
-      "format": "int64"
-     },
-     "status": {
-      "type": "string",
-      "enum": [
-       "pending",
-       "succeeded",
-       "failed",
-       "timed_out"
-      ]
-     },
-     "failureReason": {
-      "type": "string"
-     },
-     "purchaseStatus": {
-      "type": "string"
-     },
-     "createdAt": {
-      "type": "string",
-      "format": "date-time"
-     },
-     "expiresAt": {
-      "type": "string",
-      "format": "date-time"
-     },
-     "completedAt": {
-      "type": "string",
-      "format": "date-time"
-     }
-    }
-   },
-   "Transition": {
-    "type": "object",
-    "properties": {
-     "entity": {
-      "type": "string"
-     },
-     "entityId": {
-      "type": "string"
-     },
-     "from": {
-      "type": "string"
-     },
-     "to": {
-      "type": "string"
-     },
-     "reason": {
-      "type": "string"
-     },
-     "at": {
-      "type": "string",
-      "format": "date-time"
-     }
-    }
-   }
-  }
- }
 }
