@@ -1,0 +1,1041 @@
+{
+ "openapi": "3.0.3",
+ "info": {
+  "title": "Last Ticket API",
+  "version": "1.0.0",
+  "description": "Seat reservation and purchase service with a test balance."
+ },
+ "paths": {
+  "/users": {
+   "post": {
+    "summary": "Create user with test balance",
+    "tags": [
+     "users"
+    ],
+    "responses": {
+     "201": {
+      "description": "created",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/User"
+        }
+       }
+      }
+     },
+     "400": {
+      "description": "bad request",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "id exists",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "id": {
+          "type": "string"
+         },
+         "name": {
+          "type": "string"
+         },
+         "balance": {
+          "type": "integer",
+          "format": "int64"
+         }
+        },
+        "required": [
+         "name",
+         "balance"
+        ]
+       }
+      }
+     }
+    }
+   }
+  },
+  "/users/{id}": {
+   "get": {
+    "summary": "Get user (with balance)",
+    "tags": [
+     "users"
+    ],
+    "responses": {
+     "200": {
+      "description": "user",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/User"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ]
+   }
+  },
+  "/organizers": {
+   "post": {
+    "summary": "Create organizer",
+    "tags": [
+     "organizers"
+    ],
+    "responses": {
+     "201": {
+      "description": "created",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/User"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "id": {
+          "type": "string"
+         },
+         "name": {
+          "type": "string"
+         },
+         "balance": {
+          "type": "integer",
+          "format": "int64"
+         }
+        },
+        "required": [
+         "name",
+         "balance"
+        ]
+       }
+      }
+     }
+    }
+   }
+  },
+  "/organizers/{id}": {
+   "get": {
+    "summary": "Get organizer (with balance)",
+    "tags": [
+     "organizers"
+    ],
+    "responses": {
+     "200": {
+      "description": "organizer",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/User"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ]
+   }
+  },
+  "/events": {
+   "get": {
+    "summary": "List events",
+    "tags": [
+     "events"
+    ],
+    "responses": {
+     "200": {
+      "description": "events",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/Event"
+         }
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "summary": "Create event with seats (explicit list or generated A1..An)",
+    "tags": [
+     "events"
+    ],
+    "responses": {
+     "201": {
+      "description": "created",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Event"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "id": {
+          "type": "string"
+         },
+         "name": {
+          "type": "string"
+         },
+         "organizerId": {
+          "type": "string"
+         },
+         "seats": {
+          "type": "array",
+          "items": {
+           "type": "object",
+           "properties": {
+            "number": {
+             "type": "string"
+            },
+            "price": {
+             "type": "integer",
+             "format": "int64"
+            }
+           }
+          }
+         },
+         "generate": {
+          "type": "object",
+          "properties": {
+           "prefix": {
+            "type": "string"
+           },
+           "count": {
+            "type": "integer"
+           },
+           "price": {
+            "type": "integer",
+            "format": "int64"
+           }
+          }
+         }
+        },
+        "required": [
+         "name",
+         "organizerId"
+        ]
+       }
+      }
+     }
+    }
+   }
+  },
+  "/events/{id}/seats": {
+   "get": {
+    "summary": "List seats with price and status",
+    "tags": [
+     "events"
+    ],
+    "responses": {
+     "200": {
+      "description": "seats",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/Seat"
+         }
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ]
+   }
+  },
+  "/reservations": {
+   "post": {
+    "summary": "Reserve a seat for the configured TTL",
+    "tags": [
+     "reservations"
+    ],
+    "responses": {
+     "201": {
+      "description": "reserved",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Reservation"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "seat is taken",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "userId": {
+          "type": "string"
+         },
+         "eventId": {
+          "type": "string"
+         },
+         "seatId": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "userId",
+         "eventId",
+         "seatId"
+        ]
+       }
+      }
+     }
+    }
+   }
+  },
+  "/reservations/{id}": {
+   "get": {
+    "summary": "Get reservation",
+    "tags": [
+     "reservations"
+    ],
+    "responses": {
+     "200": {
+      "description": "reservation",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Reservation"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ]
+   }
+  },
+  "/reservations/{id}/cancel": {
+   "post": {
+    "summary": "Cancel an active reservation",
+    "tags": [
+     "reservations"
+    ],
+    "responses": {
+     "200": {
+      "description": "canceled",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Reservation"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "invalid state / expired",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ]
+   }
+  },
+  "/reservations/{id}/purchase": {
+   "post": {
+    "summary": "Start purchase: reserved -> payment_pending",
+    "tags": [
+     "reservations"
+    ],
+    "responses": {
+     "201": {
+      "description": "purchase started",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PurchaseStarted"
+        }
+       }
+      }
+     },
+     "403": {
+      "description": "not your reservation",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "invalid state / expired",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "object",
+        "properties": {
+         "userId": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "userId"
+        ]
+       }
+      }
+     }
+    }
+   }
+  },
+  "/purchases/{id}": {
+   "get": {
+    "summary": "Get purchase",
+    "tags": [
+     "purchases"
+    ],
+    "responses": {
+     "200": {
+      "description": "purchase",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Purchase"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ]
+   }
+  },
+  "/payments/{id}": {
+   "get": {
+    "summary": "Get payment",
+    "tags": [
+     "payments"
+    ],
+    "responses": {
+     "200": {
+      "description": "payment",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Payment"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ]
+   }
+  },
+  "/payments/{id}/confirm": {
+   "post": {
+    "summary": "Provider callback: confirm payment (idempotent). Moves money atomically.",
+    "tags": [
+     "payments"
+    ],
+    "responses": {
+     "200": {
+      "description": "succeeded (also for duplicates)",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Payment"
+        }
+       }
+      }
+     },
+     "402": {
+      "description": "insufficient funds; payment persisted as failed",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "late (timed out) or not pending",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ]
+   }
+  },
+  "/payments/{id}/fail": {
+   "post": {
+    "summary": "Provider callback: payment refused. No money moves.",
+    "tags": [
+     "payments"
+    ],
+    "responses": {
+     "200": {
+      "description": "failed",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Payment"
+        }
+       }
+      }
+     },
+     "409": {
+      "description": "not pending",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     },
+     "404": {
+      "description": "not found",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Error"
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ]
+   }
+  },
+  "/history/{id}": {
+   "get": {
+    "summary": "State transition history of a reservation/purchase/payment",
+    "tags": [
+     "history"
+    ],
+    "responses": {
+     "200": {
+      "description": "transitions",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/Transition"
+         }
+        }
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ]
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "Error": {
+    "type": "object",
+    "properties": {
+     "error": {
+      "type": "string"
+     },
+     "message": {
+      "type": "string"
+     },
+     "payment": {
+      "$ref": "#/components/schemas/Payment"
+     }
+    }
+   },
+   "User": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "name": {
+      "type": "string"
+     },
+     "balance": {
+      "type": "integer",
+      "format": "int64"
+     }
+    }
+   },
+   "Event": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "name": {
+      "type": "string"
+     },
+     "organizerId": {
+      "type": "string"
+     }
+    }
+   },
+   "Seat": {
+    "type": "object",
+    "properties": {
+     "seat": {
+      "type": "string"
+     },
+     "price": {
+      "type": "integer",
+      "format": "int64"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "available",
+       "reserved",
+       "payment_pending",
+       "purchased"
+      ]
+     }
+    }
+   },
+   "Reservation": {
+    "type": "object",
+    "properties": {
+     "reservationId": {
+      "type": "string"
+     },
+     "userId": {
+      "type": "string"
+     },
+     "eventId": {
+      "type": "string"
+     },
+     "seatId": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "reserved",
+       "payment_pending",
+       "purchased",
+       "canceled",
+       "expired",
+       "payment_failed"
+      ]
+     },
+     "createdAt": {
+      "type": "string",
+      "format": "date-time"
+     },
+     "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+     },
+     "finishedAt": {
+      "type": "string",
+      "format": "date-time"
+     }
+    }
+   },
+   "PurchaseStarted": {
+    "type": "object",
+    "properties": {
+     "purchaseId": {
+      "type": "string"
+     },
+     "paymentId": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string"
+     },
+     "amount": {
+      "type": "integer",
+      "format": "int64"
+     },
+     "paymentExpiresAt": {
+      "type": "string",
+      "format": "date-time"
+     }
+    }
+   },
+   "Purchase": {
+    "type": "object",
+    "properties": {
+     "purchaseId": {
+      "type": "string"
+     },
+     "reservationId": {
+      "type": "string"
+     },
+     "paymentId": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "payment_pending",
+       "purchased",
+       "failed",
+       "timed_out"
+      ]
+     },
+     "startedAt": {
+      "type": "string",
+      "format": "date-time"
+     },
+     "finishedAt": {
+      "type": "string",
+      "format": "date-time"
+     }
+    }
+   },
+   "Payment": {
+    "type": "object",
+    "properties": {
+     "paymentId": {
+      "type": "string"
+     },
+     "purchaseId": {
+      "type": "string"
+     },
+     "userId": {
+      "type": "string"
+     },
+     "organizerId": {
+      "type": "string"
+     },
+     "amount": {
+      "type": "integer",
+      "format": "int64"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "pending",
+       "succeeded",
+       "failed",
+       "timed_out"
+      ]
+     },
+     "failureReason": {
+      "type": "string"
+     },
+     "purchaseStatus": {
+      "type": "string"
+     },
+     "createdAt": {
+      "type": "string",
+      "format": "date-time"
+     },
+     "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+     },
+     "completedAt": {
+      "type": "string",
+      "format": "date-time"
+     }
+    }
+   },
+   "Transition": {
+    "type": "object",
+    "properties": {
+     "entity": {
+      "type": "string"
+     },
+     "entityId": {
+      "type": "string"
+     },
+     "from": {
+      "type": "string"
+     },
+     "to": {
+      "type": "string"
+     },
+     "reason": {
+      "type": "string"
+     },
+     "at": {
+      "type": "string",
+      "format": "date-time"
+     }
+    }
+   }
+  }
+ }
+}
