@@ -10,7 +10,7 @@ import (
 
 const (
 	MinPasswordLength = 8
-	MaxPasswordBytes  = 72 // bcrypt ignores the rest, so longer ones are refused
+	MaxPasswordBytes  = 72
 )
 
 func validatePassword(pw string) error {
@@ -22,7 +22,7 @@ func validatePassword(pw string) error {
 
 type hasher struct {
 	cost  int
-	dummy []byte // see burn
+	dummy []byte
 }
 
 func newHasher(cost int) (*hasher, error) {
@@ -48,8 +48,6 @@ func (h *hasher) verify(hash, pw string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(pw)) == nil
 }
 
-// burn spends as much time as a real password check, so that a login attempt
-// does not reveal whether the account exists.
 func (h *hasher) burn(pw string) {
 	_ = bcrypt.CompareHashAndPassword(h.dummy, []byte(pw))
 }

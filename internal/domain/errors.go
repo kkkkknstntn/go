@@ -2,8 +2,6 @@ package domain
 
 import "errors"
 
-// Sentinel errors. Services wrap them with details (fmt.Errorf("%w: ...", Err...))
-// and callers test them with errors.Is; the HTTP layer maps each one to a status.
 var (
 	ErrValidation         = errors.New("validation failed")
 	ErrNotFound           = errors.New("not found")

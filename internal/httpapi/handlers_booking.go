@@ -7,8 +7,6 @@ import (
 	"awesomeProject/internal/domain"
 )
 
-// callerID returns the caller's id. The ТЗ puts userId into request bodies;
-// it is accepted but must name the caller.
 func callerID(r *http.Request, bodyUserID string) (string, error) {
 	id := principal(r).UserID
 	if bodyUserID != "" && bodyUserID != id {
@@ -46,7 +44,7 @@ func (s *server) getReservation(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) reservationHistory(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	res, err := s.booking.GetReservation(r.Context(), id) // 404 and the ownership check
+	res, err := s.booking.GetReservation(r.Context(), id)
 	if err == nil && !principal(r).CanAccess(res.UserID) {
 		err = fmt.Errorf("%w: reservation belongs to another user", domain.ErrForbidden)
 	}

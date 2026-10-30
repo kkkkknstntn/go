@@ -25,7 +25,6 @@ func TestReservationStateMachine(t *testing.T) {
 			t.Errorf("%s must be final", s)
 		}
 	}
-	// the example from ТЗ §35
 	if ReservationPurchased.CanTransitionTo(ReservationCanceled) {
 		t.Error("purchased -> canceled must be forbidden")
 	}

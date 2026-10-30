@@ -1,33 +1,23 @@
 #!/usr/bin/env bash
-# Walks through the scenarios of ТЗ §55 against a running server.
-#
-# Start the service with short timeouts first, for example:
-#   RESERVATION_TTL=5s PAYMENT_TIMEOUT=10s WORKER_INTERVAL=1s go run ./cmd/tickets
-# then:
-#   ./scripts/demo.sh                    # one instance on :8080
-#   ./scripts/demo.sh :8081 :8082        # two instances on one database
-#
-# Needs curl and python3. Uses the seeded event-1 and the development
-# passwords of the admin and provider accounts.
 set -euo pipefail
 
 A="localhost${1:-:8080}"
 B="localhost${2:-${1:-:8080}}"
-RES_TTL=${RES_TTL:-5}  # seconds, must match RESERVATION_TTL
-PAY_TTL=${PAY_TTL:-10} # seconds, must match PAYMENT_TIMEOUT
+RES_TTL=${RES_TTL:-5}
+PAY_TTL=${PAY_TTL:-10}
 EVENT=event-1
 ORG=concert-company
 RUN=$RANDOM
 
 step() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
-field() { # field a.b reads d["a"]["b"] from the JSON on stdin
+field() {
 	python3 -c "
 import sys,json
 d=json.load(sys.stdin)
 for k in sys.argv[1].split('.'): d=d[k]
 print(d)" "$1"
 }
-api() { # api METHOD HOST PATH TOKEN [BODY] -> prints "status body"
+api() {
 	local args=(-s -w '\n%{http_code}' -X "$1" "$2$3")
 	[ -n "$4" ] && args+=(-H "Authorization: Bearer $4")
 	[ $# -ge 5 ] && args+=(-H 'Content-Type: application/json' -d "$5")
@@ -37,18 +27,17 @@ api() { # api METHOD HOST PATH TOKEN [BODY] -> prints "status body"
 body() { cut -d' ' -f2- <<<"$1"; }
 status() { cut -d' ' -f1 <<<"$1"; }
 login() {
-	# JSON is built outside "$(...)": bash 3.2 (macOS) brace-expands it there.
 	local payload="{\"login\":\"$1\",\"password\":\"$2\"}"
 	body "$(api POST "$A" /auth/login "" "$payload")" | field accessToken
 }
-buyer() { # buyer LOGIN BALANCE -> access token
+buyer() {
 	api POST "$A" /users "" "{\"name\":\"$1\",\"login\":\"$1\",\"password\":\"password-1\",\"balance\":$2}" >/dev/null
 	login "$1" password-1
 }
 balance() { body "$(api GET "$A" /users/me "$1")" | field balance; }
 org_balance() { body "$(api GET "$A" /organizers/$ORG "$ADMIN")" | field balance; }
 reserve() { api POST "$A" /reservations "$1" "{\"eventId\":\"$EVENT\",\"seatId\":\"$2\"}"; }
-free_seat() { # first available seat after the given index
+free_seat() {
 	body "$(api GET "$A" /events/$EVENT/seats "")" | python3 -c "
 import sys,json
 seats=[s['seat'] for s in json.load(sys.stdin) if s['status']=='available']
@@ -149,4 +138,4 @@ for t in json.load(sys.stdin): print(' ', t['at'][11:23], t['entity'].ljust(11),
 
 step "25-27. Races (expire/cancel/timeout vs purchase/confirm): see the tests"
 echo "go test -race -run 'TestExpireVsPurchase|TestCancelVsPurchase|TestTimeoutVsConfirm' -v ./internal/booking/"
-step "28. Restart: stop the server (Ctrl+C), start it again and query the ids above - nothing is lost"
+step "28. Restart: stop the server (Ctrl+C), start it again and GET any reservation or payment above - nothing is lost"

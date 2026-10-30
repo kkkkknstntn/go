@@ -17,7 +17,6 @@ import (
 //go:embed migrations/*.sql
 var migrationFiles embed.FS
 
-// migrationLockID is an arbitrary key for pg_advisory_xact_lock.
 const migrationLockID = 7270001
 
 type migration struct {
@@ -26,9 +25,6 @@ type migration struct {
 	sql     string
 }
 
-// Migrate applies the embedded migrations/NNNN_name.sql files that are not in
-// schema_migrations yet. It runs in one transaction under an advisory lock, so
-// instances starting at the same time do not race.
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	migrations, err := loadMigrations()
 	if err != nil {
@@ -77,9 +73,6 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	})
 }
 
-// refuseUnmanagedSchema fails when the tables exist but schema_migrations is
-// empty, i.e. the schema was created without migrations: applying 0001 on top
-// of it would fail with a less helpful "relation already exists".
 func refuseUnmanagedSchema(ctx context.Context, tx pgx.Tx) error {
 	var exists bool
 	if err := tx.QueryRow(ctx, `SELECT to_regclass('public.seats') IS NOT NULL`).Scan(&exists); err != nil {

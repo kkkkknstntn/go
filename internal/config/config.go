@@ -1,4 +1,3 @@
-// Package config reads the application configuration from environment variables.
 package config
 
 import (
@@ -17,7 +16,7 @@ const DefaultDatabaseURL = "postgres://postgres:postgres@localhost:5432/tickets?
 
 type Config struct {
 	DatabaseURL string
-	DBMaxConns  int32 // 0: pgxpool default
+	DBMaxConns  int32
 	ListenAddr  string
 
 	ReservationTTL  time.Duration
@@ -26,7 +25,7 @@ type Config struct {
 	RequestTimeout  time.Duration
 	ShutdownTimeout time.Duration
 
-	Seed     bool // demo catalogue and development passwords for staff accounts
+	Seed     bool
 	LogLevel slog.Level
 
 	Auth     Auth
@@ -36,22 +35,19 @@ type Config struct {
 
 type Auth struct {
 	JWTSecret          []byte
-	JWTSecretGenerated bool // JWT_SECRET was empty and a random one is used
+	JWTSecretGenerated bool
 	Issuer             string
 	AccessTokenTTL     time.Duration
 	RefreshTokenTTL    time.Duration
 	BcryptCost         int
 }
 
-// Account is a staff account; it is created on start if Password is set.
 type Account struct {
 	Login           string
 	Password        string
-	DefaultPassword bool // the built-in development password is used
+	DefaultPassword bool
 }
 
-// Load reads the configuration through getenv (os.Getenv, or a map in tests)
-// and reports all invalid values at once.
 func Load(getenv func(string) string) (Config, error) {
 	l := loader{getenv: getenv}
 	cfg := Config{
@@ -148,7 +144,6 @@ func (l *loader) logLevel(key string, def slog.Level) slog.Level {
 	return level
 }
 
-// secret returns the configured secret, or a random one if it is unset.
 func (l *loader) secret(key string, minLen int) ([]byte, bool) {
 	v := l.get(key)
 	if v == "" {
@@ -162,8 +157,6 @@ func (l *loader) secret(key string, minLen int) ([]byte, bool) {
 	return []byte(v), false
 }
 
-// account reads <PREFIX>_LOGIN and <PREFIX>_PASSWORD. In seed mode a missing
-// password defaults to "<login>-dev-password".
 func (l *loader) account(prefix, defLogin string, seed bool) Account {
 	a := Account{
 		Login:    l.str(prefix+"_LOGIN", defLogin),

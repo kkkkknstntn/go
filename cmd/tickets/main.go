@@ -1,4 +1,3 @@
-// Command tickets runs the seat booking service.
 package main
 
 import (
@@ -28,7 +27,6 @@ func run() error {
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel}))
 	slog.SetDefault(log)
 
-	// ctx is cancelled on SIGINT (Ctrl+C) or SIGTERM (docker stop, kill).
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
@@ -36,7 +34,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer a.Close() // closes the database pool after Serve returns
+	defer a.Close()
 
 	ln, err := net.Listen("tcp", cfg.ListenAddr)
 	if err != nil {

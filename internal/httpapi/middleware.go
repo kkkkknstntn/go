@@ -16,8 +16,6 @@ import (
 	"awesomeProject/internal/ids"
 )
 
-// authorize checks the bearer token and the role (unless the route is public)
-// and puts the principal into the request context.
 func (s *server) authorize(a access, next http.HandlerFunc) http.Handler {
 	if a.public {
 		return next
@@ -47,7 +45,6 @@ func bearerToken(r *http.Request) (string, bool) {
 	return token, ok && strings.EqualFold(scheme, "Bearer") && token != ""
 }
 
-// principal returns the caller on routes behind authorize.
 func principal(r *http.Request) auth.Principal {
 	p, ok := auth.PrincipalFrom(r.Context())
 	if !ok {
@@ -60,8 +57,6 @@ type requestIDKey struct{}
 
 var validRequestID = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
 
-// withRequestID takes X-Request-ID from the request or generates one, and
-// echoes it in the response so a client can quote it when reporting a problem.
 func withRequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := r.Header.Get("X-Request-ID")
@@ -97,7 +92,6 @@ func (r *statusRecorder) Write(b []byte) (int, error) {
 	return r.ResponseWriter.Write(b)
 }
 
-// Unwrap lets http.ResponseController reach the underlying writer.
 func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
 
 func (s *server) accessLog(next http.Handler) http.Handler {
@@ -111,7 +105,7 @@ func (s *server) accessLog(next http.Handler) http.Handler {
 		}
 		level := slog.LevelInfo
 		if r.URL.Path == "/healthz" || r.URL.Path == "/readyz" {
-			level = slog.LevelDebug // probes would drown everything else
+			level = slog.LevelDebug
 		}
 		s.log.Log(r.Context(), level, "http request",
 			"method", r.Method, "path", r.URL.Path, "status", status,
@@ -119,9 +113,6 @@ func (s *server) accessLog(next http.Handler) http.Handler {
 	})
 }
 
-// withTimeout limits how long a request may run. Most of that time is spent
-// waiting for row locks; when it runs out the query is cancelled and the
-// transaction rolled back, so a stuck lock does not pile up requests.
 func withTimeout(d time.Duration, next http.Handler) http.Handler {
 	if d <= 0 {
 		return next
@@ -133,8 +124,6 @@ func withTimeout(d time.Duration, next http.Handler) http.Handler {
 	})
 }
 
-// recoverPanics answers 500 instead of dropping the connection. A transaction
-// that was open is rolled back by the deferred Rollback in postgres.InTx.
 func (s *server) recoverPanics(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {

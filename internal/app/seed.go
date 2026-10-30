@@ -17,8 +17,6 @@ const (
 	demoEventID     = "event-1"
 )
 
-// ensureStaffAccounts creates the admin and provider accounts that have a
-// password configured. Existing accounts are left as they are.
 func ensureStaffAccounts(ctx context.Context, cfg config.Config, log *slog.Logger, svc *auth.Service) error {
 	for _, acc := range []struct {
 		cfg         config.Account
@@ -47,7 +45,6 @@ func ensureStaffAccounts(ctx context.Context, cfg config.Config, log *slog.Logge
 	return nil
 }
 
-// seedCatalog creates the demo organizer and event-1 with seats A1..A100.
 func seedCatalog(ctx context.Context, svc *booking.Service) error {
 	_, err := svc.CreateOrganizer(ctx, booking.NewOrganizer{ID: demoOrganizerID, Name: "Concert Company", Balance: 50_000})
 	if err != nil && !errors.Is(err, domain.ErrAlreadyExists) {

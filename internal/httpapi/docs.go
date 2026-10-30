@@ -9,7 +9,6 @@ import (
 //go:embed openapi.json
 var openAPISpec []byte
 
-// Swagger UI itself comes from a CDN.
 const swaggerPage = `<!doctype html>
 <html><head><meta charset="utf-8"><title>Last Ticket API</title>
 <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui.css"></head>
@@ -32,8 +31,6 @@ func (s *server) health(w http.ResponseWriter, _ *http.Request) {
 	_, _ = io.WriteString(w, "ok")
 }
 
-// readiness fails while the database is unreachable, so a load balancer stops
-// sending traffic to this instance.
 func (s *server) readiness(w http.ResponseWriter, r *http.Request) {
 	if s.ready != nil {
 		if err := s.ready(r.Context()); err != nil {

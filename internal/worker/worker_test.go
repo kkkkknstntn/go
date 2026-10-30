@@ -21,7 +21,7 @@ func (f *fakeSweeper) ExpireDueReservations(context.Context) (int, error) {
 
 func (f *fakeSweeper) TimeoutDuePayments(context.Context) (int, error) {
 	f.payments.Add(1)
-	return 0, errors.New("boom") // errors are logged, the loop goes on
+	return 0, errors.New("boom")
 }
 
 type panickingSweeper struct{ fakeSweeper }

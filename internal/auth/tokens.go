@@ -12,13 +12,11 @@ import (
 )
 
 const (
-	MinSecretLength = 32 // RFC 7518 §3.2: an HS256 key must be at least 256 bits
+	MinSecretLength = 32
 	Audience        = "last-ticket-api"
 	clockSkew       = 5 * time.Second
 )
 
-// TokenManager issues and checks HS256 access tokens. All instances need the
-// same secret to accept each other's tokens.
 type TokenManager struct {
 	secret []byte
 	issuer string
@@ -60,8 +58,6 @@ func (m *TokenManager) Issue(p Principal) (string, error) {
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(m.secret)
 }
 
-// Verify checks the signature, issuer, audience and expiry. Only HS256 is
-// accepted, which rules out "alg": "none" and algorithm substitution.
 func (m *TokenManager) Verify(token string) (Principal, error) {
 	var c accessClaims
 	_, err := jwt.ParseWithClaims(token, &c,

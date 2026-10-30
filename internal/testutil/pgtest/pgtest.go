@@ -1,12 +1,3 @@
-// Package pgtest gives integration tests a migrated PostgreSQL database.
-//
-// Each test package gets its own database: the one from TEST_DATABASE_URL
-// (default tickets_test on localhost) with the package name appended, such as
-// tickets_test_booking. go test runs packages in parallel, and with a shared
-// database the sweeper started by the app tests would expire the booking
-// tests' fixtures. A keyword/value DSN is used as is, without the suffix.
-//
-// Tests are skipped when PostgreSQL is unreachable, unless REQUIRE_DB is set.
 package pgtest
 
 import (
@@ -29,8 +20,6 @@ import (
 
 const defaultURL = "postgres://postgres:postgres@localhost:5432/tickets_test?sslmode=disable"
 
-// MaxConns keeps all test packages together under PostgreSQL's default
-// max_connections of 100.
 const MaxConns = 15
 
 var (
@@ -39,7 +28,6 @@ var (
 	initErr error
 )
 
-// URL returns the database URL of the current test package.
 func URL() string {
 	base := os.Getenv("TEST_DATABASE_URL")
 	if base == "" {
@@ -47,7 +35,7 @@ func URL() string {
 	}
 	u, err := url.Parse(base)
 	if err != nil || u.Scheme == "" {
-		return base // not a URL (keyword=value DSN): use it as is
+		return base
 	}
 	u.Path = "/" + strings.TrimPrefix(u.Path, "/") + "_" + packageName()
 	return u.String()
@@ -55,13 +43,11 @@ func URL() string {
 
 var notIdent = regexp.MustCompile(`[^a-z0-9_]+`)
 
-// packageName derives the package from the test binary name ("booking.test").
 func packageName() string {
 	name := strings.TrimSuffix(filepath.Base(os.Args[0]), ".test")
 	return notIdent.ReplaceAllString(strings.ToLower(name), "_")
 }
 
-// Pool returns a shared pool to the migrated test database, or skips the test.
 func Pool(t testing.TB) *pgxpool.Pool {
 	t.Helper()
 	once.Do(func() { pool, initErr = setup(URL()) })
@@ -91,8 +77,6 @@ func setup(url string) (*pgxpool.Pool, error) {
 	return p, nil
 }
 
-// ensureDatabase creates the database if needed. Another test binary may be
-// creating it at the same moment, so "already exists" is not an error.
 func ensureDatabase(ctx context.Context, url string) error {
 	cfg, err := pgx.ParseConfig(url)
 	if err != nil {
@@ -104,9 +88,9 @@ func ensureDatabase(ctx context.Context, url string) error {
 	if err != nil {
 		return err
 	}
-	defer conn.Close(context.WithoutCancel(ctx))
+	defer func() { _ = conn.Close(context.WithoutCancel(ctx)) }()
 	var exists bool
-	if err := conn.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1)`, name).Scan(&exists); err != nil {
+	if err = conn.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1)`, name).Scan(&exists); err != nil {
 		return err
 	}
 	if exists {

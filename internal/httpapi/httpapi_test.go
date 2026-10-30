@@ -78,8 +78,6 @@ func (r response) errorCode(t *testing.T) string {
 	return e.Error
 }
 
-// call performs a request. body may be nil, a string (sent verbatim) or a value
-// encoded as JSON.
 func (h *harness) call(method, path, token string, body any) response {
 	h.t.Helper()
 	var rd io.Reader
@@ -110,7 +108,6 @@ func (h *harness) expect(method, path, token string, body any, status int) respo
 	return r
 }
 
-// buyer registers a user and returns its id and an access token.
 func (h *harness) buyer(balance int64) (string, string) {
 	h.t.Helper()
 	u, err := h.auth.Register(ctx, auth.Registration{Name: "buyer", Login: ids.New("b-"), Password: "password-1", Balance: balance})
@@ -155,12 +152,10 @@ func must(t testing.TB, err error) {
 	}
 }
 
-// The main scenario of ТЗ §55, end to end over HTTP.
 func TestFullFlow(t *testing.T) {
 	h := newHarness(t)
 	adminTok, providerTok := h.staff(domain.RoleAdmin), h.staff(domain.RoleProvider)
 
-	// Sign-up and login through the API.
 	login := ids.New("ivan-")
 	var user domain.User
 	h.expect("POST", "/users", "", map[string]any{"name": "Ivan", "login": login, "password": "secret-pass", "balance": 10000}, 201).json(t, &user)
@@ -171,7 +166,6 @@ func TestFullFlow(t *testing.T) {
 	h.expect("POST", "/auth/login", "", map[string]any{"login": login, "password": "secret-pass"}, 200).json(t, &pair)
 	tok := pair.AccessToken
 
-	// The admin creates the catalogue.
 	var org domain.Organizer
 	h.expect("POST", "/organizers", adminTok, map[string]any{"name": "Concert Company", "balance": 50000}, 201).json(t, &org)
 	var ev domain.Event
@@ -200,9 +194,8 @@ func TestFullFlow(t *testing.T) {
 		t.Fatalf("purchase: %+v", started)
 	}
 
-	// The buyer cannot confirm their own payment: only the payment system can.
 	h.expect("POST", "/payments/"+started.PaymentID+"/confirm", tok, nil, 403)
-	for range 2 { // the second callback is a duplicate
+	for range 2 {
 		var pay domain.Payment
 		h.expect("POST", "/payments/"+started.PaymentID+"/confirm", providerTok, nil, 200).json(t, &pay)
 		if pay.Status != domain.PaymentSucceeded || pay.PurchaseStatus != domain.PurchasePurchased {
@@ -237,7 +230,6 @@ func TestAuthenticationAndRoles(t *testing.T) {
 	_, userTok := h.buyer(0)
 	providerTok := h.staff(domain.RoleProvider)
 
-	// No token, a malformed header, a forged token.
 	for _, tok := range []string{"", "garbage", h.token("x", domain.RoleUser) + "x"} {
 		r := h.call("GET", "/users/me", tok, nil)
 		if r.status != 401 || !strings.HasPrefix(r.header.Get("WWW-Authenticate"), "Bearer") {
@@ -249,20 +241,17 @@ func TestAuthenticationAndRoles(t *testing.T) {
 		t.Fatalf("code %s", code)
 	}
 
-	// Wrong role.
 	h.expect("POST", "/organizers", userTok, map[string]any{"name": "x", "balance": 0}, 403)
 	h.expect("POST", "/events", providerTok, map[string]any{"name": "x", "organizerId": "x"}, 403)
 	h.expect("POST", "/reservations", providerTok, map[string]any{"eventId": "x", "seatId": "A1"}, 403)
 	h.expect("GET", "/organizers/x", userTok, nil, 403)
 
-	// Public routes need no token.
 	h.expect("GET", "/events", "", nil, 200)
 	h.expect("GET", "/healthz", "", nil, 200)
 	h.expect("GET", "/readyz", "", nil, 200)
 	h.expect("GET", "/openapi.json", "", nil, 200)
 }
 
-// Users can only see and change their own reservations, purchases and payments.
 func TestOwnership(t *testing.T) {
 	h := newHarness(t)
 	ev, _ := h.event(0, 2000)
@@ -283,14 +272,12 @@ func TestOwnership(t *testing.T) {
 	h.expect("GET", "/purchases/"+started.PurchaseID, bob, nil, 403)
 	h.expect("GET", "/payments/"+started.PaymentID, bob, nil, 403)
 
-	// The owner, the admin and (for payments) the provider can read.
 	h.expect("GET", "/reservations/"+res.ID, alice, nil, 200)
 	h.expect("GET", "/reservations/"+res.ID, adminTok, nil, 200)
 	h.expect("GET", "/users/"+aliceID, adminTok, nil, 200)
 	h.expect("GET", "/payments/"+started.PaymentID, providerTok, nil, 200)
 	h.expect("GET", "/purchases/"+started.PurchaseID, providerTok, nil, 403)
 
-	// A body userId that is not the caller is refused.
 	h.expect("POST", "/reservations", bob, map[string]any{"userId": aliceID, "eventId": ev, "seatId": "A1"}, 403)
 }
 
@@ -381,16 +368,17 @@ func TestRequestValidation(t *testing.T) {
 	}
 	h.expect("POST", "/users", "", map[string]any{"name": "n", "login": "x", "password": "p", "balance": 0}, 400)
 	h.expect("GET", "/events/missing/seats", "", nil, 404)
+	big := `{"name":"` + strings.Repeat("x", maxBodyBytes) + `"}`
+	if code := h.expect("POST", "/users", "", big, 413).errorCode(t); code != "body_too_large" {
+		t.Fatalf("code %s", code)
+	}
 
-	// count+len(seats) would overflow int and pass a naive bounds check
 	admin := h.staff(domain.RoleAdmin)
 	_, org := h.event(0, 1)
 	h.expect("POST", "/events", admin, `{"name":"e","organizerId":"`+org+`","seats":[{"number":"X","price":1}],
 		"generate":{"prefix":"A","count":9223372036854775807,"price":1}}`, 400)
 }
 
-// A request stuck behind a row lock is cut off by the request timeout and
-// leaves nothing behind.
 func TestRequestTimeout(t *testing.T) {
 	h := newHarnessWithTimeout(t, 200*time.Millisecond)
 	ev, _ := h.event(0, 2000)
@@ -398,7 +386,7 @@ func TestRequestTimeout(t *testing.T) {
 
 	tx, err := pgtest.Pool(t).Begin(ctx)
 	must(t, err)
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	_, err = tx.Exec(ctx, `SELECT 1 FROM seats WHERE event_id = $1 AND number = 'A1' FOR UPDATE`, ev)
 	must(t, err)
 
@@ -444,8 +432,6 @@ func TestPanicBecomes500(t *testing.T) {
 	}
 }
 
-// Every route is documented in openapi.json with the right security, and the
-// document lists no route that does not exist.
 func TestOpenAPIMatchesRoutes(t *testing.T) {
 	var spec struct {
 		Paths map[string]map[string]struct {

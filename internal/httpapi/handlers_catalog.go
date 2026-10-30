@@ -33,8 +33,7 @@ func (s *server) createEvent(w http.ResponseWriter, r *http.Request) {
 		Name        string            `json:"name"`
 		OrganizerID string            `json:"organizerId"`
 		Seats       []domain.SeatSpec `json:"seats"`
-		// seats prefix1..prefixN, all at one price
-		Generate *struct {
+		Generate    *struct {
 			Prefix string `json:"prefix"`
 			Count  int    `json:"count"`
 			Price  int64  `json:"price"`
@@ -46,7 +45,6 @@ func (s *server) createEvent(w http.ResponseWriter, r *http.Request) {
 	}
 	seats := in.Seats
 	if g := in.Generate; g != nil {
-		// Written as a subtraction: g.Count+len(seats) could overflow.
 		if g.Count < 1 || g.Count > booking.MaxSeatsPerEvent-len(seats) {
 			s.writeError(w, r, fmt.Errorf("%w: generate.count must be in 1..%d", domain.ErrValidation, booking.MaxSeatsPerEvent-len(seats)), nil)
 			return

@@ -1,5 +1,3 @@
-// Package app wires the services together and runs the HTTP server and the
-// sweeper until shutdown.
 package app
 
 import (
@@ -30,8 +28,6 @@ type App struct {
 	handler http.Handler
 }
 
-// New connects to the database, migrates it, builds the services and seeds
-// demo data if configured. The caller must Close the App.
 func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error) {
 	pool, err := postgres.Connect(ctx, cfg.DatabaseURL, cfg.DBMaxConns)
 	if err != nil {
@@ -52,7 +48,7 @@ func build(ctx context.Context, cfg config.Config, log *slog.Logger, pool *pgxpo
 	bookingSvc, err := booking.New(pool, booking.Config{
 		ReservationTTL:   cfg.ReservationTTL,
 		PaymentTimeout:   cfg.PaymentTimeout,
-		SweepItemTimeout: cfg.RequestTimeout, // a record gets as long as an HTTP request
+		SweepItemTimeout: cfg.RequestTimeout,
 	})
 	if err != nil {
 		return nil, err
@@ -89,23 +85,16 @@ func build(ctx context.Context, cfg config.Config, log *slog.Logger, pool *pgxpo
 	return &App{cfg: cfg, log: log, pool: pool, booking: bookingSvc, handler: handler}, nil
 }
 
-// Close closes the connection pool, waiting for connections in use.
 func (a *App) Close() { a.pool.Close() }
 
-// Serve runs the HTTP server on ln and the sweeper until ctx is cancelled.
-// Then it stops accepting connections and stops the sweeper, gives running
-// requests ShutdownTimeout to finish and cancels the rest, which rolls their
-// transactions back.
 func (a *App) Serve(ctx context.Context, ln net.Listener) error {
-	// Requests get their own context rather than ctx: a SIGTERM must not
-	// abort them on the spot.
 	requestCtx, cancelRequests := context.WithCancel(context.WithoutCancel(ctx))
 	defer cancelRequests()
 	srv := &http.Server{
 		Handler:           a.handler,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      30 * time.Second,
+		WriteTimeout:      a.cfg.RequestTimeout + 5*time.Second,
 		IdleTimeout:       60 * time.Second,
 		BaseContext:       func(net.Listener) context.Context { return requestCtx },
 		ErrorLog:          slog.NewLogLogger(a.log.Handler(), slog.LevelWarn),

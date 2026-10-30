@@ -17,23 +17,27 @@ const maxBodyBytes = 1 << 20
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v) // a write error means the client is gone
+	_ = json.NewEncoder(w).Encode(v)
 }
 
-// decodeJSON reads exactly one JSON object into dst. Unknown fields are
-// rejected, so a client cannot slip in a "price". With optional an empty body
-// is fine.
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any, optional bool) error {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
+	var tooLarge *http.MaxBytesError
 	if err := dec.Decode(dst); err != nil {
-		if optional && errors.Is(err, io.EOF) {
+		switch {
+		case errors.As(err, &tooLarge):
+			return err
+		case optional && errors.Is(err, io.EOF):
 			return nil
 		}
 		return fmt.Errorf("%w: invalid JSON body: %v", domain.ErrValidation, err)
 	}
 	if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		if errors.As(err, &tooLarge) {
+			return err
+		}
 		return fmt.Errorf("%w: body must contain exactly one JSON object", domain.ErrValidation)
 	}
 	return nil
@@ -45,7 +49,6 @@ type errorBody struct {
 	Payment *domain.Payment `json:"payment,omitempty"`
 }
 
-// errorStatuses maps domain errors to HTTP statuses and error codes.
 var errorStatuses = []struct {
 	err    error
 	status int
@@ -66,8 +69,6 @@ var errorStatuses = []struct {
 	{domain.ErrInsufficientFunds, http.StatusPaymentRequired, "insufficient_funds"},
 }
 
-// writeError writes err as JSON. payment is set for rejected payment
-// callbacks, so the client sees the state the payment was left in.
 func (s *server) writeError(w http.ResponseWriter, r *http.Request, err error, payment *domain.Payment) {
 	for _, m := range errorStatuses {
 		if errors.Is(err, m.err) {
@@ -86,7 +87,6 @@ func (s *server) writeError(w http.ResponseWriter, r *http.Request, err error, p
 		s.log.WarnContext(r.Context(), "request timed out", "path", r.URL.Path, "request_id", requestID(r.Context()))
 		writeJSON(w, http.StatusServiceUnavailable, errorBody{Error: "timeout", Message: "request took too long, nothing was changed"})
 	case errors.Is(err, context.Canceled):
-		// The client went away or the server is shutting down.
 		s.log.InfoContext(r.Context(), "request cancelled", "path", r.URL.Path, "request_id", requestID(r.Context()))
 		writeJSON(w, http.StatusServiceUnavailable, errorBody{Error: "request_cancelled", Message: "request was cancelled, nothing was changed"})
 	case postgres.IsTransient(err):

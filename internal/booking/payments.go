@@ -9,9 +9,6 @@ import (
 	"awesomeProject/internal/ids"
 )
 
-// StartPurchase moves the reservation to payment_pending and creates the
-// purchase and the payment for the seat price. From here on the payment
-// timeout applies instead of the reservation TTL.
 func (s *Service) StartPurchase(ctx context.Context, reservationID, userID string) (*domain.PurchaseStarted, error) {
 	var out *domain.PurchaseStarted
 	err := s.inTx(ctx, func(st store) error {
@@ -26,7 +23,7 @@ func (s *Service) StartPurchase(ctx context.Context, reservationID, userID strin
 			return fmt.Errorf("%w: cannot start a purchase for a %s reservation", domain.ErrInvalidTransition, r.Status)
 		}
 		if r.Expired {
-			if err := s.expireReservation(ctx, st, &seat, r, "reservation ttl (on purchase)"); err != nil {
+			if err = s.expireReservation(ctx, st, &seat, r, "reservation ttl (on purchase)"); err != nil {
 				return err
 			}
 			return commitThen(fmt.Errorf("%w: reservation %s", domain.ErrReservationExpired, reservationID))
@@ -36,7 +33,7 @@ func (s *Service) StartPurchase(ctx context.Context, reservationID, userID strin
 			return err
 		}
 		purchaseID, paymentID := ids.New("purchase-"), ids.New("payment-")
-		if err := st.insertPurchase(ctx, purchaseID, reservationID); err != nil {
+		if err = st.insertPurchase(ctx, purchaseID, reservationID); err != nil {
 			return err
 		}
 		expiresAt, err := st.insertPayment(ctx, paymentID, purchaseID, userID, organizerID, seat.Price, s.cfg.PaymentTimeout)
@@ -72,12 +69,6 @@ func (s *Service) GetPayment(ctx context.Context, id string) (*domain.Payment, e
 	return s.db().getPayment(ctx, id)
 }
 
-// ConfirmPayment handles the provider's success callback. The deadline and
-// balance checks, the transfer and all status changes are one transaction.
-//
-// Confirming a succeeded payment again returns it unchanged. On a rejection
-// (insufficient funds, too late, already failed) the payment is returned
-// along with the error.
 func (s *Service) ConfirmPayment(ctx context.Context, paymentID string) (*domain.Payment, error) {
 	err := s.inTx(ctx, func(st store) error {
 		seat, p, err := s.lockPaymentWithSeat(ctx, st, paymentID)
@@ -86,14 +77,14 @@ func (s *Service) ConfirmPayment(ctx context.Context, paymentID string) (*domain
 		}
 		switch p.Status {
 		case domain.PaymentSucceeded:
-			return nil // duplicate callback
+			return nil
 		case domain.PaymentTimedOut:
 			return fmt.Errorf("%w: payment %s, confirmation arrived too late", domain.ErrPaymentTimedOut, paymentID)
 		case domain.PaymentFailed:
 			return fmt.Errorf("%w: payment %s has already failed", domain.ErrPaymentNotPending, paymentID)
 		}
 		if p.Expired {
-			if err := s.timeoutPayment(ctx, st, &seat, &p, "payment timeout (on confirm)"); err != nil {
+			if err = s.closePayment(ctx, st, &seat, &p, outcomeTimedOut, "payment timeout (on confirm)"); err != nil {
 				return err
 			}
 			return commitThen(fmt.Errorf("%w: payment %s, confirmation arrived too late", domain.ErrPaymentTimedOut, paymentID))
@@ -103,7 +94,7 @@ func (s *Service) ConfirmPayment(ctx context.Context, paymentID string) (*domain
 			return err
 		}
 		if balance < p.Amount {
-			if err := s.failPayment(ctx, st, &seat, &p, domain.FailureInsufficientFunds); err != nil {
+			if err := s.closePayment(ctx, st, &seat, &p, outcomeFailed, domain.FailureInsufficientFunds); err != nil {
 				return err
 			}
 			return commitThen(fmt.Errorf("%w: balance %d, price %d", domain.ErrInsufficientFunds, balance, p.Amount))
@@ -111,22 +102,11 @@ func (s *Service) ConfirmPayment(ctx context.Context, paymentID string) (*domain
 		if err := st.transfer(ctx, p.UserID, p.OrganizerID, p.Amount); err != nil {
 			return err
 		}
-		if err := st.movePayment(ctx, &p, domain.PaymentSucceeded, "confirmed by provider"); err != nil {
-			return err
-		}
-		if err := st.movePurchase(ctx, p.PurchaseID, domain.PurchasePaymentPending, domain.PurchasePurchased, "payment succeeded"); err != nil {
-			return err
-		}
-		if err := st.moveReservation(ctx, p.ReservationID, domain.ReservationPaymentPending, domain.ReservationPurchased, "payment succeeded"); err != nil {
-			return err
-		}
-		return st.moveSeat(ctx, &seat, domain.SeatPurchased, "payment "+p.ID+" succeeded")
+		return s.closePayment(ctx, st, &seat, &p, outcomeSucceeded, "confirmed by provider")
 	})
 	return s.paymentResult(ctx, paymentID, err)
 }
 
-// FailPayment handles the provider's refusal callback: the seat is freed and
-// no money moves. Repeating it changes nothing.
 func (s *Service) FailPayment(ctx context.Context, paymentID string) (*domain.Payment, error) {
 	err := s.inTx(ctx, func(st store) error {
 		seat, p, err := s.lockPaymentWithSeat(ctx, st, paymentID)
@@ -135,25 +115,23 @@ func (s *Service) FailPayment(ctx context.Context, paymentID string) (*domain.Pa
 		}
 		switch p.Status {
 		case domain.PaymentFailed:
-			return nil // duplicate callback
+			return nil
 		case domain.PaymentSucceeded:
 			return fmt.Errorf("%w: payment %s has already succeeded", domain.ErrPaymentNotPending, paymentID)
 		case domain.PaymentTimedOut:
 			return fmt.Errorf("%w: payment %s", domain.ErrPaymentTimedOut, paymentID)
 		}
 		if p.Expired {
-			if err := s.timeoutPayment(ctx, st, &seat, &p, "payment timeout (on fail)"); err != nil {
+			if err := s.closePayment(ctx, st, &seat, &p, outcomeTimedOut, "payment timeout (on fail)"); err != nil {
 				return err
 			}
 			return commitThen(fmt.Errorf("%w: payment %s", domain.ErrPaymentTimedOut, paymentID))
 		}
-		return s.failPayment(ctx, st, &seat, &p, domain.FailureDeclined)
+		return s.closePayment(ctx, st, &seat, &p, outcomeFailed, domain.FailureDeclined)
 	})
 	return s.paymentResult(ctx, paymentID, err)
 }
 
-// TimeoutPayment times the payment out if it is still pending and past its
-// deadline, and reports whether it did.
 func (s *Service) TimeoutPayment(ctx context.Context, paymentID string) (bool, error) {
 	timedOut := false
 	err := s.inTx(ctx, func(st store) error {
@@ -161,7 +139,7 @@ func (s *Service) TimeoutPayment(ctx context.Context, paymentID string) (bool, e
 		if err != nil || p.Status != domain.PaymentPending || !p.Expired {
 			return err
 		}
-		if err := s.timeoutPayment(ctx, st, &seat, &p, "payment timeout (sweeper)"); err != nil {
+		if err := s.closePayment(ctx, st, &seat, &p, outcomeTimedOut, "payment timeout (sweeper)"); err != nil {
 			return err
 		}
 		timedOut = true
@@ -170,7 +148,6 @@ func (s *Service) TimeoutPayment(ctx context.Context, paymentID string) (bool, e
 	return timedOut, err
 }
 
-// TimeoutDuePayments is one pass of the sweeper over payments.
 func (s *Service) TimeoutDuePayments(ctx context.Context) (int, error) {
 	return s.sweep(ctx,
 		`SELECT id FROM payments WHERE status = 'pending' AND expires_at <= clock_timestamp() ORDER BY expires_at LIMIT $1`,
@@ -190,34 +167,32 @@ func (s *Service) lockPaymentWithSeat(ctx context.Context, st store, paymentID s
 	return seat, p, err
 }
 
-func (s *Service) timeoutPayment(ctx context.Context, st store, seat *seatRow, p *paymentRow, reason string) error {
-	if err := st.movePayment(ctx, p, domain.PaymentTimedOut, reason); err != nil {
-		return err
-	}
-	if err := st.movePurchase(ctx, p.PurchaseID, domain.PurchasePaymentPending, domain.PurchaseTimedOut, reason); err != nil {
-		return err
-	}
-	if err := st.moveReservation(ctx, p.ReservationID, domain.ReservationPaymentPending, domain.ReservationExpired, reason); err != nil {
-		return err
-	}
-	return st.moveSeat(ctx, seat, domain.SeatAvailable, "payment "+p.ID+" timed out")
+type paymentOutcome struct {
+	payment     domain.PaymentStatus
+	purchase    domain.PurchaseStatus
+	reservation domain.ReservationStatus
+	seat        domain.SeatStatus
 }
 
-func (s *Service) failPayment(ctx context.Context, st store, seat *seatRow, p *paymentRow, reason string) error {
-	if err := st.movePayment(ctx, p, domain.PaymentFailed, reason); err != nil {
+var (
+	outcomeSucceeded = paymentOutcome{domain.PaymentSucceeded, domain.PurchasePurchased, domain.ReservationPurchased, domain.SeatPurchased}
+	outcomeFailed    = paymentOutcome{domain.PaymentFailed, domain.PurchaseFailed, domain.ReservationPaymentFailed, domain.SeatAvailable}
+	outcomeTimedOut  = paymentOutcome{domain.PaymentTimedOut, domain.PurchaseTimedOut, domain.ReservationExpired, domain.SeatAvailable}
+)
+
+func (s *Service) closePayment(ctx context.Context, st store, seat *seatRow, p *paymentRow, o paymentOutcome, reason string) error {
+	if err := st.movePayment(ctx, p, o.payment, reason); err != nil {
 		return err
 	}
-	if err := st.movePurchase(ctx, p.PurchaseID, domain.PurchasePaymentPending, domain.PurchaseFailed, reason); err != nil {
+	if err := st.movePurchase(ctx, p.PurchaseID, domain.PurchasePaymentPending, o.purchase, reason); err != nil {
 		return err
 	}
-	if err := st.moveReservation(ctx, p.ReservationID, domain.ReservationPaymentPending, domain.ReservationPaymentFailed, reason); err != nil {
+	if err := st.moveReservation(ctx, p.ReservationID, domain.ReservationPaymentPending, o.reservation, reason); err != nil {
 		return err
 	}
-	return st.moveSeat(ctx, seat, domain.SeatAvailable, "payment "+p.ID+" failed")
+	return st.moveSeat(ctx, seat, o.seat, "payment "+p.ID+" "+string(o.payment))
 }
 
-// paymentResult returns the payment after a callback, together with the
-// callback's error if that error is a business rejection.
 func (s *Service) paymentResult(ctx context.Context, paymentID string, opErr error) (*domain.Payment, error) {
 	if opErr != nil && !isPaymentRejection(opErr) {
 		return nil, opErr

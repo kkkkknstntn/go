@@ -1,4 +1,3 @@
-// Package httpapi is the HTTP/JSON API.
 package httpapi
 
 import (
@@ -16,8 +15,8 @@ type Deps struct {
 	Booking        *booking.Service
 	Auth           *auth.Service
 	Logger         *slog.Logger
-	Ready          func(ctx context.Context) error // checked by /readyz
-	RequestTimeout time.Duration                   // 0: no limit
+	Ready          func(ctx context.Context) error
+	RequestTimeout time.Duration
 }
 
 type server struct {
@@ -28,8 +27,8 @@ type server struct {
 }
 
 type access struct {
-	public bool          // no token needed
-	roles  []domain.Role // empty: any authenticated caller
+	public bool
+	roles  []domain.Role
 }
 
 var (
@@ -37,7 +36,6 @@ var (
 	authenticated = access{}
 	buyer         = access{roles: []domain.Role{domain.RoleUser}}
 	admin         = access{roles: []domain.Role{domain.RoleAdmin}}
-	// admins may call payment callbacks by hand for demonstrations
 	paymentSystem = access{roles: []domain.Role{domain.RoleProvider, domain.RoleAdmin}}
 )
 
@@ -89,6 +87,5 @@ func NewRouter(d Deps) http.Handler {
 	for _, rt := range s.routes() {
 		mux.Handle(rt.method+" "+rt.pattern, s.authorize(rt.access, rt.handler))
 	}
-	// recoverPanics is inside accessLog so that a panic is logged as a 500.
 	return withRequestID(s.accessLog(s.recoverPanics(withTimeout(d.RequestTimeout, mux))))
 }

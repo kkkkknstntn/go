@@ -1,9 +1,3 @@
-// Package booking implements seats, reservations, purchases and payments.
-//
-// Every operation that changes a seat starts with SELECT ... FOR UPDATE on the
-// seat row, so PostgreSQL serializes all operations on one seat whichever
-// instance runs them. Locks are always taken in the order seat, reservation
-// or payment, buyer, organizer, so these transactions cannot deadlock.
 package booking
 
 import (
@@ -13,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -22,10 +17,8 @@ import (
 )
 
 type Config struct {
-	ReservationTTL time.Duration // how long a reservation holds the seat
-	PaymentTimeout time.Duration // how long a started purchase waits for the payment
-	// SweepItemTimeout limits the sweeper's work on one record, so that a seat
-	// locked for a long time delays only that record. 0: no limit.
+	ReservationTTL   time.Duration
+	PaymentTimeout   time.Duration
 	SweepItemTimeout time.Duration
 }
 
@@ -41,11 +34,8 @@ func New(pool *pgxpool.Pool, cfg Config) (*Service, error) {
 	return &Service{pool: pool, cfg: cfg}, nil
 }
 
-// db returns a store working on the pool, outside a transaction.
 func (s *Service) db() store { return store{q: s.pool} }
 
-// inTx runs fn in a transaction. An error wrapped with commitThen is returned
-// after the transaction commits; any other error rolls it back.
 func (s *Service) inTx(ctx context.Context, fn func(st store) error) error {
 	var kept error
 	err := postgres.InTx(ctx, s.pool, func(tx pgx.Tx) error {
@@ -63,8 +53,6 @@ func (s *Service) inTx(ctx context.Context, fn func(st store) error) error {
 	return kept
 }
 
-// committed is a rejection whose changes still have to be saved: a confirm
-// that comes too late times the payment out and only then fails.
 type committed struct{ err error }
 
 func (c committed) Error() string { return c.err.Error() }
@@ -79,7 +67,7 @@ func validationErr(format string, args ...any) error {
 }
 
 func validateName(field, v string) error {
-	if strings.TrimSpace(v) == "" || len(v) > 200 {
+	if strings.TrimSpace(v) == "" || utf8.RuneCountInString(v) > 200 {
 		return validationErr("%s must be 1..200 characters", field)
 	}
 	return nil

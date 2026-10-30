@@ -10,10 +10,6 @@ import (
 	"awesomeProject/internal/domain"
 )
 
-// Clients see the effective status: once a deadline has passed, a reservation
-// is shown as expired and its seat as available even if the sweeper has not
-// stored that yet. These queries run outside transactions, where now() is the
-// start of the statement.
 const (
 	effectiveReservationStatus = `CASE
 		WHEN r.status = 'reserved' AND r.expires_at <= now() THEN 'expired'
@@ -97,7 +93,6 @@ func (s store) listSeats(ctx context.Context, eventID string) ([]domain.Seat, er
 	if !exists {
 		return nil, fmt.Errorf("%w: event %s", domain.ErrNotFound, eventID)
 	}
-	// reservations_one_live_per_seat keeps the joins at one row per seat.
 	rows, err := s.q.Query(ctx, `
 		SELECT s.number, s.price, `+effectiveSeatStatus+`
 		FROM seats s
@@ -117,8 +112,6 @@ func (s store) listSeats(ctx context.Context, eventID string) ([]domain.Seat, er
 	})
 }
 
-// reservationHistory returns the transitions of a reservation, its purchase
-// and its payment, oldest first.
 func (s store) reservationHistory(ctx context.Context, reservationID string) ([]domain.Transition, error) {
 	rows, err := s.q.Query(ctx, `
 		SELECT entity, entity_id, from_status, to_status, reason, at

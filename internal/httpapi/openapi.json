@@ -66,7 +66,7 @@
         "tags": [
           "auth"
         ],
-        "summary": "Register a buyer with a test balance (public)",
+        "summary": "Register a buyer with a test balance (public). Name: 1..200 characters, login: 3..64 of [A-Za-z0-9._@-], password: 8..72 bytes",
         "responses": {
           "201": {
             "description": "Created",
@@ -97,6 +97,19 @@
                 }
               }
             }
+          },
+          "413": {
+            "description": "Request body larger than 1 MiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "requestBody": {
@@ -163,6 +176,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": [
@@ -218,6 +234,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "parameters": [
@@ -273,6 +292,19 @@
                 }
               }
             }
+          },
+          "413": {
+            "description": "Request body larger than 1 MiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "requestBody": {
@@ -326,6 +358,19 @@
                 }
               }
             }
+          },
+          "413": {
+            "description": "Request body larger than 1 MiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "description": "The presented refresh token is revoked. Presenting a revoked token again revokes every session of the user.",
@@ -359,6 +404,19 @@
         "responses": {
           "204": {
             "description": "Revoked"
+          },
+          "413": {
+            "description": "Request body larger than 1 MiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "requestBody": {
@@ -438,6 +496,19 @@
                 }
               }
             }
+          },
+          "413": {
+            "description": "Request body larger than 1 MiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "requestBody": {
@@ -519,6 +590,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "parameters": [
@@ -557,6 +631,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "security": []
@@ -626,6 +703,19 @@
                 }
               }
             }
+          },
+          "413": {
+            "description": "Request body larger than 1 MiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "description": "Seats are given as a list, generated as prefix1..prefixN, or both.",
@@ -731,6 +821,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "parameters": [
@@ -812,6 +905,19 @@
                 }
               }
             }
+          },
+          "413": {
+            "description": "Request body larger than 1 MiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "requestBody": {
@@ -895,6 +1001,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "parameters": [
@@ -919,7 +1028,7 @@
         "tags": [
           "booking"
         ],
-        "summary": "Timeline of the reservation, its seat, purchase and payment",
+        "summary": "Status history of the reservation, its purchase and its payment (owner or admin)",
         "responses": {
           "200": {
             "description": "Transitions",
@@ -963,6 +1072,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "parameters": [
@@ -1038,6 +1150,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "parameters": [
@@ -1123,6 +1238,19 @@
                 }
               }
             }
+          },
+          "413": {
+            "description": "Request body larger than 1 MiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "parameters": [
@@ -1204,6 +1332,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "parameters": [
@@ -1269,6 +1400,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "parameters": [
@@ -1354,6 +1488,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "parameters": [
@@ -1429,6 +1566,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
           }
         },
         "parameters": [
@@ -1746,7 +1886,6 @@
           "entity": {
             "type": "string",
             "enum": [
-              "seat",
               "reservation",
               "purchase",
               "payment"
@@ -1767,6 +1906,18 @@
           "at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      }
+    },
+    "responses": {
+      "Unavailable": {
+        "description": "Nothing was changed; retry later. error is timeout (the request ran longer than REQUEST_TIMEOUT, usually waiting for a locked row), service_unavailable (database unreachable or overloaded; Retry-After is set) or request_cancelled (server shutting down)",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
           }
         }
       }

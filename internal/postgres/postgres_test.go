@@ -16,11 +16,11 @@ func TestErrorClassification(t *testing.T) {
 	}{
 		{pg("23505"), true, false, false},
 		{pg("23503"), false, true, false},
-		{pg("40P01"), false, false, true}, // deadlock_detected
-		{pg("40001"), false, false, true}, // serialization_failure
-		{pg("53300"), false, false, true}, // too_many_connections
-		{pg("57P01"), false, false, true}, // admin_shutdown
-		{pg("08006"), false, false, true}, // connection_failure
+		{pg("40P01"), false, false, true},
+		{pg("40001"), false, false, true},
+		{pg("53300"), false, false, true},
+		{pg("57P01"), false, false, true},
+		{pg("08006"), false, false, true},
 		{pg("22001"), false, false, false},
 		{errors.New("plain"), false, false, false},
 	}

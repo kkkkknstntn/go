@@ -17,6 +17,8 @@ import (
 	"awesomeProject/internal/testutil/pgtest"
 )
 
+var client = &http.Client{Transport: &http.Transport{DisableKeepAlives: true}}
+
 type running struct {
 	t      *testing.T
 	app    *App
@@ -27,7 +29,7 @@ type running struct {
 
 func start(t *testing.T, shutdownTimeout time.Duration) *running {
 	t.Helper()
-	pgtest.Pool(t) // skips when there is no database
+	pgtest.Pool(t)
 	cfg, err := config.Load(func(k string) string {
 		return map[string]string{
 			"DATABASE_URL":     pgtest.URL(),
@@ -63,10 +65,9 @@ func (r *running) post(path, token string, body any) (*http.Response, error) {
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
-	return http.DefaultClient.Do(req)
+	return client.Do(req)
 }
 
-// buyerToken signs a buyer up and logs in over HTTP.
 func (r *running) buyerToken() string {
 	r.t.Helper()
 	login := ids.New("b-")
@@ -74,19 +75,17 @@ func (r *running) buyerToken() string {
 	if err != nil || resp.StatusCode != 201 {
 		r.t.Fatalf("register: %v %v", resp, err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	resp, err = r.post("/auth/login", "", map[string]any{"login": login, "password": "password-1"})
 	if err != nil || resp.StatusCode != 200 {
 		r.t.Fatalf("login: %v %v", resp, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var pair struct{ AccessToken string }
 	_ = json.NewDecoder(resp.Body).Decode(&pair)
 	return pair.AccessToken
 }
 
-// holdSeat locks a seat row in another transaction, so that a reservation of
-// that seat blocks until release is called.
 func holdSeat(t *testing.T, seat string) (release func()) {
 	t.Helper()
 	tx, err := pgtest.Pool(t).Begin(context.Background())
@@ -111,7 +110,6 @@ func reservationsOf(t *testing.T, seat string) int {
 	return n
 }
 
-// freeSeat makes sure an earlier test run did not leave the seat reserved.
 func freeSeat(t *testing.T, seat string) {
 	t.Helper()
 	ctx := context.Background()
@@ -128,17 +126,16 @@ func freeSeat(t *testing.T, seat string) {
 
 func TestServesAndStops(t *testing.T) {
 	r := start(t, 5*time.Second)
-	resp, err := http.Get(r.base + "/readyz")
+	resp, err := client.Get(r.base + "/readyz")
 	if err != nil || resp.StatusCode != 200 {
 		t.Fatalf("readyz: %v %v", resp, err)
 	}
-	resp.Body.Close()
-	// The seeded admin can log in with the development password.
+	_ = resp.Body.Close()
 	resp, err = r.post("/auth/login", "", map[string]any{"login": "admin", "password": "admin-dev-password"})
 	if err != nil || resp.StatusCode != 200 {
 		t.Fatalf("admin login: %v %v", resp, err)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	r.stop()
 	select {
 	case err := <-r.served:
@@ -148,12 +145,11 @@ func TestServesAndStops(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("Serve did not return")
 	}
-	if _, err := http.Get(r.base + "/healthz"); err == nil {
+	if _, err := client.Get(r.base + "/healthz"); err == nil {
 		t.Fatal("the server must not accept requests after shutdown")
 	}
 }
 
-// An in-flight request finishes during a graceful shutdown.
 func TestShutdownLetsActiveRequestsFinish(t *testing.T) {
 	const seat = "A98"
 	freeSeat(t, seat)
@@ -168,10 +164,10 @@ func TestShutdownLetsActiveRequestsFinish(t *testing.T) {
 			result <- 0
 			return
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		result <- resp.StatusCode
 	}()
-	time.Sleep(150 * time.Millisecond) // the request is now waiting on the seat lock
+	time.Sleep(150 * time.Millisecond)
 	r.stop()
 	time.Sleep(100 * time.Millisecond)
 	release()
@@ -188,8 +184,6 @@ func TestShutdownLetsActiveRequestsFinish(t *testing.T) {
 	freeSeat(t, seat)
 }
 
-// A request still running after the shutdown timeout is cancelled and its
-// transaction rolled back.
 func TestShutdownTimeoutCancelsRequests(t *testing.T) {
 	const seat = "A99"
 	freeSeat(t, seat)
@@ -202,7 +196,7 @@ func TestShutdownTimeoutCancelsRequests(t *testing.T) {
 	go func() {
 		defer close(done)
 		if resp, err := r.post("/reservations", tok, map[string]any{"eventId": demoEventID, "seatId": seat}); err == nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 	}()
 	time.Sleep(150 * time.Millisecond)

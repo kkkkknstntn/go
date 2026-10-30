@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -61,8 +62,7 @@ func TestRegisterAndLogin(t *testing.T) {
 		t.Fatalf("authenticate: %+v, %v", p, err)
 	}
 
-	// Logins are case-insensitive and unique.
-	if _, err := svc.Login(ctx, "  "+login, "correct-horse"); !errors.Is(err, domain.ErrInvalidCredentials) {
+	if _, err = svc.Login(ctx, "  "+login, "correct-horse"); !errors.Is(err, domain.ErrInvalidCredentials) {
 		t.Fatalf("a login with spaces is a different login: %v", err)
 	}
 	_, err = svc.Register(ctx, Registration{Name: "x", Login: u.Login, Password: "another-pass", Balance: 0})
@@ -121,7 +121,6 @@ func TestRefreshRotation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Replaying the rotated token is treated as theft: every session dies.
 	if _, err := svc.Refresh(ctx, first.RefreshToken); !errors.Is(err, domain.ErrInvalidToken) {
 		t.Fatalf("reuse: %v", err)
 	}
@@ -133,7 +132,6 @@ func TestRefreshRotation(t *testing.T) {
 	}
 }
 
-// Two concurrent refreshes with the same token: exactly one wins.
 func TestConcurrentRefresh(t *testing.T) {
 	svc := newTestService(t)
 	_, login := register(t, svc, "correct-horse")
@@ -210,5 +208,25 @@ func TestEnsureAccount(t *testing.T) {
 	p, _ := svc.Authenticate(pair.AccessToken)
 	if p.Role != domain.RoleAdmin {
 		t.Fatalf("role: %s", p.Role)
+	}
+
+	_, buyerLogin := register(t, svc, "buyer-password")
+	if _, err := svc.EnsureAccount(ctx, "Admin", buyerLogin, "admin-password", domain.RoleAdmin); err == nil {
+		t.Fatal("a login taken by a buyer must not count as the admin account")
+	}
+	if _, err := svc.EnsureAccount(ctx, "Provider", login, "provider-password", domain.RoleProvider); err == nil {
+		t.Fatal("the admin login must not count as the provider account")
+	}
+}
+
+func TestNameLengthIsInCharacters(t *testing.T) {
+	svc := newTestService(t)
+	reg := Registration{Name: strings.Repeat("я", 200), Login: ids.New("cyr-"), Password: "long-enough", Balance: 0}
+	if _, err := svc.Register(ctx, reg); err != nil {
+		t.Fatalf("200 Cyrillic characters (400 bytes) must fit: %v", err)
+	}
+	reg.Name, reg.Login = strings.Repeat("я", 201), ids.New("cyr-")
+	if _, err := svc.Register(ctx, reg); !errors.Is(err, domain.ErrValidation) {
+		t.Fatalf("201 characters: %v", err)
 	}
 }

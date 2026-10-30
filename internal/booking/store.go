@@ -13,13 +13,6 @@ import (
 	"awesomeProject/internal/postgres"
 )
 
-// store holds the SQL of the package: this file has the locking queries and
-// status changes, store_read.go the queries for clients, store_catalog.go
-// organizers, events and users.
-//
-// The write methods expect the caller to hold the lock of the seat involved.
-// Deadlines are compared with clock_timestamp() in queries issued after that
-// lock was taken, so they reflect the moment of the decision.
 type store struct {
 	q postgres.Querier
 }
@@ -33,7 +26,6 @@ type seatRow struct {
 
 func (r seatRow) key() string { return r.EventID + "/" + r.Number }
 
-// lockSeat serializes everything that happens to one seat.
 func (s store) lockSeat(ctx context.Context, eventID, number string) (seatRow, error) {
 	row := seatRow{EventID: eventID, Number: number}
 	err := s.q.QueryRow(ctx,
@@ -53,7 +45,7 @@ func (s store) moveSeat(ctx context.Context, seat *seatRow, to domain.SeatStatus
 	tag, err := s.q.Exec(ctx,
 		`UPDATE seats SET status = $4 WHERE event_id = $1 AND number = $2 AND status = $3`,
 		seat.EventID, seat.Number, from, to)
-	if err := checkApplied(tag, err, "seat", seat.key()); err != nil {
+	if err = checkApplied(tag, err, "seat", seat.key()); err != nil {
 		return err
 	}
 	seat.Status = to
@@ -69,8 +61,6 @@ type reservationRow struct {
 	Expired    bool
 }
 
-// reservationSeat reads the seat of a reservation without locking. The seat
-// never changes, so the caller can lock it before locking the reservation.
 func (s store) reservationSeat(ctx context.Context, id string) (eventID, number string, err error) {
 	err = s.q.QueryRow(ctx, `SELECT event_id, seat_number FROM reservations WHERE id = $1`, id).Scan(&eventID, &number)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -91,8 +81,6 @@ func (s store) lockReservation(ctx context.Context, id string) (reservationRow, 
 	return r, err
 }
 
-// lockActiveReservation locks the reservation holding the seat in the
-// reserved state, if there is one.
 func (s store) lockActiveReservation(ctx context.Context, eventID, number string) (reservationRow, bool, error) {
 	r := reservationRow{EventID: eventID, SeatNumber: number}
 	err := s.q.QueryRow(ctx, `
@@ -115,7 +103,7 @@ func (s store) insertReservation(ctx context.Context, id, userID string, seat se
 		RETURNING id, user_id, event_id, seat_number, status, created_at, expires_at`,
 		id, userID, seat.EventID, seat.Number, ttl.Seconds()).
 		Scan(&r.ID, &r.UserID, &r.EventID, &r.SeatID, &r.Status, &r.CreatedAt, &r.ExpiresAt)
-	if postgres.IsUniqueViolation(err) { // reservations_one_live_per_seat
+	if postgres.IsUniqueViolation(err) {
 		return nil, fmt.Errorf("%w: seat %s already has a live reservation", domain.ErrSeatUnavailable, seat.Number)
 	}
 	if err != nil {
@@ -133,7 +121,7 @@ func (s store) moveReservation(ctx context.Context, id string, from, to domain.R
 		SET status = $3, finished_at = CASE WHEN $4::boolean THEN clock_timestamp() END
 		WHERE id = $1 AND status = $2`,
 		id, from, to, to.IsFinal())
-	if err := checkApplied(tag, err, "reservation", id); err != nil {
+	if err = checkApplied(tag, err, "reservation", id); err != nil {
 		return err
 	}
 	return s.logTransition(ctx, "reservation", id, string(from), string(to), reason)
@@ -150,7 +138,6 @@ type paymentRow struct {
 	Expired       bool
 }
 
-// paymentSeat reads the seat a payment is for, without locking.
 func (s store) paymentSeat(ctx context.Context, paymentID string) (eventID, number string, err error) {
 	err = s.q.QueryRow(ctx, `
 		SELECT r.event_id, r.seat_number
@@ -185,7 +172,6 @@ func (s store) lockPayment(ctx context.Context, id string) (paymentRow, error) {
 	return p, err
 }
 
-// lockPendingPayment locks the pending payment holding the seat, if there is one.
 func (s store) lockPendingPayment(ctx context.Context, eventID, number string) (paymentRow, bool, error) {
 	p, err := scanPaymentRow(s.q.QueryRow(ctx,
 		selectPaymentForUpdate+`WHERE r.event_id = $1 AND r.seat_number = $2 AND p.status = 'pending' FOR UPDATE OF p`,
@@ -227,7 +213,7 @@ func (s store) movePurchase(ctx context.Context, id string, from, to domain.Purc
 		SET status = $3, finished_at = CASE WHEN $4::boolean THEN clock_timestamp() END
 		WHERE id = $1 AND status = $2`,
 		id, from, to, to.IsFinal())
-	if err := checkApplied(tag, err, "purchase", id); err != nil {
+	if err = checkApplied(tag, err, "purchase", id); err != nil {
 		return err
 	}
 	return s.logTransition(ctx, "purchase", id, string(from), string(to), reason)
@@ -247,15 +233,13 @@ func (s store) movePayment(ctx context.Context, p *paymentRow, to domain.Payment
 		SET status = $3, failure_reason = NULLIF($4, ''), completed_at = clock_timestamp()
 		WHERE id = $1 AND status = $2`,
 		p.ID, from, to, failureReason)
-	if err := checkApplied(tag, err, "payment", p.ID); err != nil {
+	if err = checkApplied(tag, err, "payment", p.ID); err != nil {
 		return err
 	}
 	p.Status = to
 	return s.logTransition(ctx, "payment", p.ID, string(from), string(to), reason)
 }
 
-// lockBalance locks the buyer's row. Concurrent payments of one user queue
-// here and each sees the balance left by the previous one.
 func (s store) lockBalance(ctx context.Context, userID string) (int64, error) {
 	var balance int64
 	err := s.q.QueryRow(ctx, `SELECT balance FROM users WHERE id = $1 FOR UPDATE`, userID).Scan(&balance)
@@ -263,8 +247,6 @@ func (s store) lockBalance(ctx context.Context, userID string) (int64, error) {
 }
 
 func (s store) transfer(ctx context.Context, userID, organizerID string, amount int64) error {
-	// balance >= $2 has already been checked under lockBalance; it stays in
-	// the WHERE clause as a last guard against debiting below zero.
 	tag, err := s.q.Exec(ctx,
 		`UPDATE users SET balance = balance - $2 WHERE id = $1 AND balance >= $2`, userID, amount)
 	if err != nil {
@@ -294,9 +276,6 @@ func invalidTransition[S ~string](entity, id string, from, to S) error {
 	return fmt.Errorf("%w: %s %s cannot go from %s to %s", domain.ErrInvalidTransition, entity, id, from, to)
 }
 
-// checkApplied fails if a guarded UPDATE ... WHERE status = <from> changed no
-// row. That does not happen while the seat is locked; if it ever does, the
-// transaction is rolled back instead of overwriting a status.
 func checkApplied(tag pgconn.CommandTag, err error, entity, id string) error {
 	if err != nil {
 		return err

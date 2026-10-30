@@ -13,7 +13,7 @@ import (
 const MaxSeatsPerEvent = 10_000
 
 type NewOrganizer struct {
-	ID      string // optional, generated when empty
+	ID      string
 	Name    string
 	Balance int64
 }
@@ -45,13 +45,12 @@ func (s *Service) GetOrganizer(ctx context.Context, id string) (*domain.Organize
 }
 
 type NewEvent struct {
-	ID          string // optional, generated when empty
+	ID          string
 	Name        string
 	OrganizerID string
 	Seats       []domain.SeatSpec
 }
 
-// CreateEvent creates the event and its seats in one transaction.
 func (s *Service) CreateEvent(ctx context.Context, in NewEvent) (*domain.Event, error) {
 	if err := errors.Join(
 		validateOptionalID("id", in.ID),
@@ -101,7 +100,6 @@ func (s *Service) ListEvents(ctx context.Context) ([]domain.Event, error) {
 	return s.db().listEvents(ctx)
 }
 
-// ListSeats returns the seats with their effective status (see store_read.go).
 func (s *Service) ListSeats(ctx context.Context, eventID string) ([]domain.Seat, error) {
 	return s.db().listSeats(ctx, eventID)
 }

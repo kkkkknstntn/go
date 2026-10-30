@@ -52,14 +52,11 @@ func TestVerifyRejects(t *testing.T) {
 	expiredManager.now = func() time.Time { return time.Now().Add(-time.Hour) }
 	expired, _ := expiredManager.Issue(Principal{UserID: "user-1", Role: domain.RoleUser})
 
-	// "alg": "none" must never be accepted.
 	unsigned, _ := jwt.NewWithClaims(jwt.SigningMethodNone, accessClaims{
 		Role:             domain.RoleAdmin,
 		RegisteredClaims: jwt.RegisteredClaims{Subject: "user-1", Issuer: "test-issuer", Audience: jwt.ClaimStrings{Audience}, ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour))},
 	}).SignedString(jwt.UnsafeAllowNoneSignatureType)
 
-	// A valid token whose payload was edited to claim the admin role: the
-	// original signature no longer matches.
 	parts := strings.Split(good, ".")
 	payload, _ := base64.RawURLEncoding.DecodeString(parts[1])
 	forged := strings.Replace(string(payload), `"role":"user"`, `"role":"admin"`, 1)

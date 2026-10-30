@@ -2,10 +2,6 @@ package domain
 
 import "slices"
 
-// Allowed status transitions. The booking store checks every status change
-// against these tables before running the UPDATE.
-
-// SeatStatus is the stored state of a seat.
 type SeatStatus string
 
 const (
@@ -25,7 +21,6 @@ func (s SeatStatus) CanTransitionTo(to SeatStatus) bool {
 	return slices.Contains(seatTransitions[s], to)
 }
 
-// ReservationStatus is the state of a reservation.
 type ReservationStatus string
 
 const (
@@ -46,10 +41,8 @@ func (s ReservationStatus) CanTransitionTo(to ReservationStatus) bool {
 	return slices.Contains(reservationTransitions[s], to)
 }
 
-// IsFinal reports whether no transition leaves s.
 func (s ReservationStatus) IsFinal() bool { return len(reservationTransitions[s]) == 0 }
 
-// PurchaseStatus is the state of a purchase.
 type PurchaseStatus string
 
 const (
@@ -69,7 +62,6 @@ func (s PurchaseStatus) CanTransitionTo(to PurchaseStatus) bool {
 
 func (s PurchaseStatus) IsFinal() bool { return len(purchaseTransitions[s]) == 0 }
 
-// PaymentStatus is the state of a payment attempt.
 type PaymentStatus string
 
 const (
@@ -89,21 +81,16 @@ func (s PaymentStatus) CanTransitionTo(to PaymentStatus) bool {
 
 func (s PaymentStatus) IsFinal() bool { return len(paymentTransitions[s]) == 0 }
 
-// Failure reasons stored on failed payments.
 const (
 	FailureInsufficientFunds = "insufficient_funds"
 	FailureDeclined          = "declined"
 )
 
-// Role is an account role carried in access tokens.
 type Role string
 
 const (
-	// RoleUser is a buyer with a test balance.
-	RoleUser Role = "user"
-	// RoleAdmin manages organizers and events and may read everything.
-	RoleAdmin Role = "admin"
-	// RoleProvider models the external payment system that sends confirm/fail callbacks.
+	RoleUser     Role = "user"
+	RoleAdmin    Role = "admin"
 	RoleProvider Role = "provider"
 )
 

@@ -1,4 +1,3 @@
--- Organizers receive the money for sold seats.
 CREATE TABLE organizers (
     id         text PRIMARY KEY,
     name       text   NOT NULL,
@@ -6,8 +5,6 @@ CREATE TABLE organizers (
     created_at timestamptz NOT NULL DEFAULT clock_timestamp()
 );
 
--- Accounts. Buyers have role 'user' and a test balance; 'admin' manages the
--- catalogue; 'provider' models the payment system that sends callbacks.
 CREATE TABLE users (
     id            text PRIMARY KEY,
     name          text   NOT NULL,
@@ -20,7 +17,6 @@ CREATE TABLE users (
 
 CREATE UNIQUE INDEX users_login_key ON users (lower(login));
 
--- Refresh tokens are stored as SHA-256 hashes; rotation links old -> new.
 CREATE TABLE refresh_tokens (
     id          text PRIMARY KEY,
     user_id     text  NOT NULL REFERENCES users (id),
@@ -40,8 +36,6 @@ CREATE TABLE events (
     created_at   timestamptz NOT NULL DEFAULT clock_timestamp()
 );
 
--- seats.status is the anchor of per-seat concurrency control: every state
--- change of a seat starts with SELECT ... FOR UPDATE on its row.
 CREATE TABLE seats (
     event_id   text   NOT NULL REFERENCES events (id),
     number     text   NOT NULL,
@@ -66,8 +60,6 @@ CREATE TABLE reservations (
     FOREIGN KEY (event_id, seat_number) REFERENCES seats (event_id, number)
 );
 
--- Second line of defence: the database itself refuses a second live
--- reservation of the same seat, whatever the application does.
 CREATE UNIQUE INDEX reservations_one_live_per_seat
     ON reservations (event_id, seat_number)
     WHERE status IN ('reserved', 'payment_pending', 'purchased');
@@ -99,7 +91,6 @@ CREATE TABLE payments (
 
 CREATE INDEX payments_due ON payments (expires_at) WHERE status = 'pending';
 
--- History of every state change.
 CREATE TABLE transitions (
     id          bigserial PRIMARY KEY,
     entity      text NOT NULL,

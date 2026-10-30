@@ -18,8 +18,6 @@ import (
 	"awesomeProject/internal/testutil/pgtest"
 )
 
-// fixture is an organizer with an event whose seats are A1, A2, ... Ids are
-// random, so tests do not see each other's data.
 type fixture struct {
 	t     *testing.T
 	pool  *pgxpool.Pool
@@ -44,8 +42,6 @@ func newFixture(t *testing.T, resTTL, payTimeout time.Duration, orgBalance int64
 	return &fixture{t: t, pool: pool, svc: svc, org: org.ID, event: ev.ID}
 }
 
-// withService returns a copy of the fixture using another Service, such as a
-// "restarted" instance.
 func (f *fixture) withService(svc *Service) *fixture {
 	c := *f
 	c.svc = svc
@@ -56,7 +52,6 @@ func (f *fixture) user(balance int64) string {
 	return createUser(f.t, f.pool, domain.RoleUser, balance)
 }
 
-// createUser inserts the account directly; bcrypt would only slow the tests.
 func createUser(t *testing.T, pool *pgxpool.Pool, role domain.Role, balance int64) string {
 	t.Helper()
 	id := ids.New("user-")
@@ -82,7 +77,6 @@ func (f *fixture) startPurchase(userID, seat string) *domain.PurchaseStarted {
 	return p
 }
 
-// seatStatus is the effective status shown to clients.
 func (f *fixture) seatStatus(seat string) domain.SeatStatus {
 	f.t.Helper()
 	seats, err := f.svc.ListSeats(context.Background(), f.event)
@@ -96,7 +90,6 @@ func (f *fixture) seatStatus(seat string) domain.SeatStatus {
 	return ""
 }
 
-// storedSeatStatus bypasses the effective view.
 func (f *fixture) storedSeatStatus(seat string) domain.SeatStatus {
 	f.t.Helper()
 	var st domain.SeatStatus
@@ -142,7 +135,6 @@ func eq[T comparable](t testing.TB, what string, got, want T) {
 	}
 }
 
-// parallel runs fn(0..n-1) in n goroutines released at the same moment.
 func parallel(n int, fn func(i int)) {
 	var ready, done sync.WaitGroup
 	start := make(chan struct{})
@@ -192,7 +184,6 @@ func TestStaffCannotReserve(t *testing.T) {
 	wantErr(t, err, domain.ErrForbidden)
 }
 
-// Experiment 1: the last seat and 100 concurrent reserve requests.
 func TestConcurrentReserveLastSeat(t *testing.T) {
 	f := newFixture(t, time.Minute, time.Minute, 0, 2000)
 	users := make([]string, 100)
@@ -217,7 +208,6 @@ func TestConcurrentReserveLastSeat(t *testing.T) {
 		`SELECT count(*) FROM reservations WHERE event_id = $1 AND status = 'reserved'`, f.event), 1)
 }
 
-// Two application instances: separate services and separate pools on one database.
 func TestTwoInstancesSameSeat(t *testing.T) {
 	f := newFixture(t, time.Minute, time.Minute, 0, 2000)
 	poolB, err := postgres.Connect(ctx, pgtest.URL(), 10)
@@ -259,7 +249,7 @@ func TestCancel(t *testing.T) {
 	eq(t, "seat", f.seatStatus("A1"), domain.SeatAvailable)
 	_, err = f.svc.CancelReservation(ctx, r.ID, u)
 	wantErr(t, err, domain.ErrInvalidTransition)
-	f.reserve(f.user(0), "A1") // the seat is free for others
+	f.reserve(f.user(0), "A1")
 }
 
 func TestCannotCancelExpiredOrPurchased(t *testing.T) {
@@ -287,7 +277,6 @@ func TestExpiration(t *testing.T) {
 	r := f.reserve(f.user(0), "A1")
 	time.Sleep(80 * time.Millisecond)
 
-	// Before the sweeper runs, clients already see the seat as free.
 	eq(t, "effective seat", f.seatStatus("A1"), domain.SeatAvailable)
 	eq(t, "stored seat", f.storedSeatStatus("A1"), domain.SeatReserved)
 	got, err := f.svc.GetReservation(ctx, r.ID)
@@ -305,8 +294,6 @@ func TestExpiration(t *testing.T) {
 	eq(t, "second expire is a no-op", again, false)
 }
 
-// A seat locked by someone else for a long time holds up only its own record:
-// the sweeper gives up on it after SweepItemTimeout and expires the others.
 func TestSweeperDoesNotWaitForeverOnALockedSeat(t *testing.T) {
 	f := newFixture(t, 30*time.Millisecond, time.Minute, 0, 2000, 2000)
 	f.svc.cfg.SweepItemTimeout = 200 * time.Millisecond
@@ -316,7 +303,7 @@ func TestSweeperDoesNotWaitForeverOnALockedSeat(t *testing.T) {
 
 	tx, err := f.pool.Begin(ctx)
 	must(t, err)
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	_, err = tx.Exec(ctx, `SELECT 1 FROM seats WHERE event_id = $1 AND number = 'A1' FOR UPDATE`, f.event)
 	must(t, err)
 
@@ -339,7 +326,6 @@ func TestSweeperDoesNotWaitForeverOnALockedSeat(t *testing.T) {
 	eq(t, "locked seat released on the next pass", f.storedSeatStatus("A1"), domain.SeatAvailable)
 }
 
-// Correctness does not depend on the sweeper: a stale reservation does not block the seat.
 func TestReserveOverExpiredReservationWithoutSweeper(t *testing.T) {
 	f := newFixture(t, 30*time.Millisecond, time.Minute, 0, 2000)
 	old := f.reserve(f.user(0), "A1")
@@ -352,8 +338,6 @@ func TestReserveOverExpiredReservationWithoutSweeper(t *testing.T) {
 	eq(t, "old reservation", got.Status, domain.ReservationExpired)
 }
 
-// ТЗ §24: after the payment timeout another user can take the seat, even
-// before the sweeper has run.
 func TestReserveOverTimedOutPaymentWithoutSweeper(t *testing.T) {
 	f := newFixture(t, time.Minute, 40*time.Millisecond, 50000, 2000)
 	u1 := f.user(10000)
@@ -482,7 +466,7 @@ func TestFailPayment(t *testing.T) {
 	eq(t, "reason", pay.FailureReason, domain.FailureDeclined)
 	eq(t, "purchase", pay.PurchaseStatus, domain.PurchaseFailed)
 	_, err = f.svc.FailPayment(ctx, p.PaymentID)
-	must(t, err) // duplicate callback
+	must(t, err)
 	ub, ob := f.balances(u)
 	eq(t, "user", ub, 10000)
 	eq(t, "organizer", ob, 50000)
@@ -513,7 +497,6 @@ func TestPaymentTimeout(t *testing.T) {
 	eq(t, "organizer", ob, 50000)
 }
 
-// ТЗ §23: the reservation TTL is over but the payment is still in time.
 func TestDelayedConfirm(t *testing.T) {
 	f := newFixture(t, 150*time.Millisecond, time.Minute, 0, 2000)
 	u := f.user(10000)
@@ -529,7 +512,6 @@ func TestDelayedConfirm(t *testing.T) {
 	eq(t, "seat", f.seatStatus("A1"), domain.SeatPurchased)
 }
 
-// ТЗ §24: timeout, another user takes the seat, then the old confirm arrives.
 func TestLateConfirm(t *testing.T) {
 	f := newFixture(t, time.Minute, 50*time.Millisecond, 50000, 2000)
 	u1, u2 := f.user(10000), f.user(10000)
@@ -548,7 +530,6 @@ func TestLateConfirm(t *testing.T) {
 	eq(t, "seat stays with user 2", f.seatStatus("A1"), domain.SeatReserved)
 }
 
-// A confirm after the deadline is rejected even if the sweeper never ran.
 func TestLateConfirmWithoutSweeper(t *testing.T) {
 	f := newFixture(t, time.Minute, 40*time.Millisecond, 50000, 2000)
 	u := f.user(10000)
@@ -575,7 +556,6 @@ func TestDuplicateConfirm(t *testing.T) {
 	eq(t, "user", ub, 8000)
 	eq(t, "organizer", ob, 52000)
 
-	// Concurrent duplicates.
 	u2 := f.user(10000)
 	p2 := f.startPurchase(u2, "A2")
 	parallel(20, func(int) {
@@ -590,7 +570,6 @@ func TestDuplicateConfirm(t *testing.T) {
 		`SELECT count(*) FROM transitions WHERE entity_id = $1 AND to_status = 'succeeded'`, p2.PaymentID), 1)
 }
 
-// Experiment 2: one balance, two payments, confirmed concurrently.
 func TestDoubleSpending(t *testing.T) {
 	for range 20 {
 		f := newFixture(t, time.Minute, time.Minute, 0, 2000, 2000)
@@ -616,7 +595,6 @@ func TestDoubleSpending(t *testing.T) {
 	}
 }
 
-// Many payments against one balance: it never goes negative.
 func TestBalanceHotspot(t *testing.T) {
 	prices := make([]int64, 30)
 	for i := range prices {
@@ -673,14 +651,12 @@ func TestCancelVsPurchase(t *testing.T) {
 	}
 }
 
-// Experiment 3: expire vs start purchase right at the TTL boundary.
 func TestExpireVsPurchase(t *testing.T) {
 	var expired, pending int
 	for i := range 60 {
 		f := newFixture(t, 25*time.Millisecond, time.Minute, 0, 2000)
 		u := f.user(10000)
 		r := f.reserve(u, "A1")
-		// Land the race on the boundary, jittered around it.
 		time.Sleep(time.Until(r.ExpiresAt) - time.Duration(i%6)*time.Millisecond)
 		var purchaseErr error
 		parallel(2, func(k int) {
@@ -710,7 +686,6 @@ func TestExpireVsPurchase(t *testing.T) {
 	t.Logf("expire vs purchase: expired=%d payment_pending=%d", expired, pending)
 }
 
-// Experiment 4: payment timeout vs confirm right at the deadline.
 func TestTimeoutVsConfirm(t *testing.T) {
 	var timedOut, purchased int
 	for i := range 60 {
@@ -747,8 +722,6 @@ func TestTimeoutVsConfirm(t *testing.T) {
 	t.Logf("timeout vs confirm: purchased=%d timed_out=%d", purchased, timedOut)
 }
 
-// After a restart (a new Service on the same database, no sweeper pass yet)
-// expired records are not treated as active.
 func TestRestart(t *testing.T) {
 	f := newFixture(t, 30*time.Millisecond, 40*time.Millisecond, 50000, 2000, 2000)
 	u := f.user(10000)
@@ -767,7 +740,6 @@ func TestRestart(t *testing.T) {
 	g.reserve(g.user(0), "A2")
 }
 
-// A cancelled request must not leave partial changes.
 func TestCancelledContextRollsBack(t *testing.T) {
 	f := newFixture(t, time.Minute, time.Minute, 50000, 2000)
 	u := f.user(10000)
@@ -785,7 +757,6 @@ func TestCancelledContextRollsBack(t *testing.T) {
 	eq(t, "payment", got.Status, domain.PaymentPending)
 }
 
-// The guarded UPDATE refuses to leave a final state even if called directly.
 func TestStoreRefusesTransitionsFromFinalStates(t *testing.T) {
 	f := newFixture(t, time.Minute, time.Minute, 0, 2000)
 	u := f.user(10000)
@@ -797,7 +768,6 @@ func TestStoreRefusesTransitionsFromFinalStates(t *testing.T) {
 	st := store{q: f.pool}
 	err = st.moveReservation(ctx, pay.ReservationID, domain.ReservationPurchased, domain.ReservationCanceled, "test")
 	wantErr(t, err, domain.ErrInvalidTransition)
-	// Lying about the current state is caught by the WHERE status = from guard.
 	err = st.moveReservation(ctx, pay.ReservationID, domain.ReservationReserved, domain.ReservationCanceled, "test")
 	wantErr(t, err, domain.ErrInvalidTransition)
 	got, _ := f.svc.GetReservation(ctx, pay.ReservationID)
@@ -835,7 +805,9 @@ func TestCreateEventValidation(t *testing.T) {
 			wantErr(t, err, domain.ErrValidation)
 		})
 	}
-	_, err := f.svc.CreateEvent(ctx, NewEvent{Name: "e", OrganizerID: "missing", Seats: []domain.SeatSpec{seat("A1", 1)}})
+	_, err := f.svc.CreateEvent(ctx, NewEvent{Name: strings.Repeat("я", 200), OrganizerID: f.org, Seats: []domain.SeatSpec{seat("A1", 1)}})
+	must(t, err)
+	_, err = f.svc.CreateEvent(ctx, NewEvent{Name: "e", OrganizerID: "missing", Seats: []domain.SeatSpec{seat("A1", 1)}})
 	wantErr(t, err, domain.ErrNotFound)
 	_, err = f.svc.CreateEvent(ctx, NewEvent{ID: f.event, Name: "e", OrganizerID: f.org, Seats: []domain.SeatSpec{seat("A1", 1)}})
 	wantErr(t, err, domain.ErrAlreadyExists)

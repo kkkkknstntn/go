@@ -11,9 +11,6 @@ import (
 	"awesomeProject/internal/ids"
 )
 
-// Reserve gives the seat to the user for ReservationTTL. The decision is made
-// under the seat lock: concurrent callers wait for it and then find the seat
-// taken.
 func (s *Service) Reserve(ctx context.Context, userID, eventID, seatNumber string) (*domain.Reservation, error) {
 	if err := errors.Join(requireField("userId", userID), requireField("eventId", eventID), requireField("seatId", seatNumber)); err != nil {
 		return nil, err
@@ -31,7 +28,7 @@ func (s *Service) Reserve(ctx context.Context, userID, eventID, seatNumber strin
 		if err != nil {
 			return err
 		}
-		if err := s.releaseStaleSeat(ctx, st, &seat); err != nil {
+		if err = s.releaseStaleSeat(ctx, st, &seat); err != nil {
 			return err
 		}
 		if seat.Status != domain.SeatAvailable {
@@ -49,8 +46,6 @@ func (s *Service) Reserve(ctx context.Context, userID, eventID, seatNumber strin
 	return out, nil
 }
 
-// releaseStaleSeat frees a locked seat that is still held by an expired
-// reservation or payment, so a late sweeper never keeps a seat blocked.
 func (s *Service) releaseStaleSeat(ctx context.Context, st store, seat *seatRow) error {
 	switch seat.Status {
 	case domain.SeatReserved:
@@ -64,7 +59,7 @@ func (s *Service) releaseStaleSeat(ctx context.Context, st store, seat *seatRow)
 		if err != nil || !found || !p.Expired {
 			return err
 		}
-		return s.timeoutPayment(ctx, st, seat, &p, "payment timeout (on reserve)")
+		return s.closePayment(ctx, st, seat, &p, outcomeTimedOut, "payment timeout (on reserve)")
 	}
 	return nil
 }
@@ -73,15 +68,10 @@ func (s *Service) GetReservation(ctx context.Context, id string) (*domain.Reserv
 	return s.db().getReservation(ctx, id)
 }
 
-// ReservationHistory returns the status changes of the reservation, its
-// purchase and its payment. An unknown id gives an empty list.
 func (s *Service) ReservationHistory(ctx context.Context, id string) ([]domain.Transition, error) {
 	return s.db().reservationHistory(ctx, id)
 }
 
-// CancelReservation cancels the user's reservation and frees the seat. A
-// reservation already past its TTL is expired instead and ErrReservationExpired
-// is returned.
 func (s *Service) CancelReservation(ctx context.Context, id, userID string) (*domain.Reservation, error) {
 	err := s.inTx(ctx, func(st store) error {
 		seat, r, err := s.lockReservationWithSeat(ctx, st, id)
@@ -111,8 +101,6 @@ func (s *Service) CancelReservation(ctx context.Context, id, userID string) (*do
 	return s.GetReservation(ctx, id)
 }
 
-// ExpireReservation expires the reservation if it is still reserved and past
-// its TTL, and reports whether it did.
 func (s *Service) ExpireReservation(ctx context.Context, id string) (bool, error) {
 	expired := false
 	err := s.inTx(ctx, func(st store) error {
@@ -129,7 +117,6 @@ func (s *Service) ExpireReservation(ctx context.Context, id string) (bool, error
 	return expired, err
 }
 
-// ExpireDueReservations is one pass of the sweeper over reservations.
 func (s *Service) ExpireDueReservations(ctx context.Context) (int, error) {
 	return s.sweep(ctx,
 		`SELECT id FROM reservations WHERE status = 'reserved' AND expires_at <= clock_timestamp() ORDER BY expires_at LIMIT $1`,
@@ -156,12 +143,8 @@ func (s *Service) expireReservation(ctx context.Context, st store, seat *seatRow
 	return st.moveSeat(ctx, seat, domain.SeatAvailable, "reservation "+r.ID+" expired")
 }
 
-// sweepBatch limits one pass; whatever is left is picked up by the next one.
 const sweepBatch = 500
 
-// sweep calls one(id) for each id the query returns, each within
-// SweepItemTimeout. Errors are collected so that one record that fails or
-// waits too long for its seat does not stop the rest.
 func (s *Service) sweep(ctx context.Context, query string, one func(context.Context, string) (bool, error)) (int, error) {
 	rows, err := s.pool.Query(ctx, query, sweepBatch)
 	if err != nil {
